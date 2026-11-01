@@ -4,9 +4,15 @@
 
 # Android / export output
 /android/
+/build/
 *.apk
 *.aab
 *.idsig
+
+# Signing keys & export secrets (never commit these)
+*.keystore
+*.jks
+export_credentials.cfg
 
 # OS / editor
 .DS_Store
