@@ -1,14 +1,25 @@
 extends Control
-## PART 2 test screen: the pannable / zoomable isometric world.
+## PART 3 main scene: the world map with the real UI on top. Port of App.js
 ##
-## On top of the map there is still the temporary Part 1 debug overlay (money, 4 upgrade buttons,
-## offline report). The real HUD / bottom bar / panels (port of App.js) arrive in Part 3.
+## Layers (bottom -> top):  WorldMap  ->  TopGradient  ->  Hud  ->  UpgradePanel / ComingSoon  ->  BottomBar  ->  OfflineCard
+##
+## React concept                      ->  Godot
+##   useGame()                         ->  `Game` autoload + its `changed` / `offline_report_changed` signals
+##   useState('home')                  ->  `_tab`
+##   useSafeAreaInsets / useBottomBarHeight -> UiKit.safe_insets() / BottomBar.bar_height()
+##   hideSystemNav (expo-navigation-bar) -> _hide_system_bars()
+##   loading screen (fonts / save)     ->  not needed: the save is loaded synchronously by `Game`, fonts are local files
 
 var _map: WorldMap
-var _info_label: Label
-var _offline_label: Label
-var _ok_button: Button
-var _buttons := {}
+var _top_gradient: TopGradient
+var _hud: Hud
+var _upgrade_panel: UpgradePanel
+var _coming_soon: ComingSoon
+var _bottom_bar: BottomBar
+var _offline_card: OfflineCard
+
+var _tab := "home"  # shop | cards | home | upgrade | minigames
+var _dp := 1.0
 
 
 func _ready() -> void:
@@ -17,106 +28,110 @@ func _ready() -> void:
 	AppFonts.apply_to_theme(t)
 	theme = t
 
+	_hide_system_bars()
+
 	# --- world (bottom layer) ---
 	_map = WorldMap.new()
 	_map.name = "WorldMap"
 	add_child(_map)
-	_map.set_level(Game.level)
 
-	# --- temporary overlay (top layer). IGNORE so touches reach the map between the buttons ---
-	var margin := MarginContainer.new()
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 32)
-	add_child(margin)
+	# Phone's top status bar is hidden; a short black -> transparent gradient replaces it.
+	_top_gradient = TopGradient.new()
+	add_child(_top_gradient)
 
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 16)
-	margin.add_child(box)
+	# The HUD root ignores the mouse, so empty areas still pass touches to the map.
+	_hud = Hud.new()
+	add_child(_hud)
 
-	_info_label = _make_label(34)
-	box.add_child(_info_label)
+	_upgrade_panel = UpgradePanel.new()
+	_upgrade_panel.upgrade_requested.connect(Game.upgrade)
+	add_child(_upgrade_panel)
 
-	var spacer := Control.new()
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(spacer)
+	_coming_soon = ComingSoon.new()
+	add_child(_coming_soon)
 
-	_offline_label = _make_label(34)
-	box.add_child(_offline_label)
+	_bottom_bar = BottomBar.new()
+	_bottom_bar.tab_changed.connect(_on_tab_changed)
+	add_child(_bottom_bar)
 
-	_ok_button = Button.new()
-	_ok_button.text = Strings.OK
-	_ok_button.custom_minimum_size = Vector2(0, 100)
-	_ok_button.add_theme_font_size_override("font_size", 36)
-	_ok_button.pressed.connect(Game.dismiss_offline)
-	box.add_child(_ok_button)
-
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
-	box.add_child(grid)
-
-	for key in Balance.SECTION_KEYS:
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(0, 120)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 28)
-		b.pressed.connect(Game.upgrade.bind(key))
-		grid.add_child(b)
-		_buttons[key] = b
+	_offline_card = OfflineCard.new()
+	_offline_card.closed.connect(Game.dismiss_offline)
+	add_child(_offline_card)
 
 	Game.changed.connect(_refresh)
-	Game.offline_report_changed.connect(_refresh_offline)
+	Game.offline_report_changed.connect(_on_offline_changed)
+	resized.connect(_layout)
+
+	_layout()
+	_bottom_bar.set_active(_tab)
 	_refresh()
-	_refresh_offline()
+	_on_offline_changed()
+	call_deferred("_layout")
 
 
-func _make_label(font_size: int) -> Label:
-	var l := Label.new()
-	l.language = "fa"
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Palette.INK)
-	l.add_theme_color_override("font_outline_color", Palette.CREAM)
-	l.add_theme_constant_override("outline_size", 10)
-	return l
+## Sizes / safe area. Runs at start and whenever the screen size changes.
+func _layout() -> void:
+	var width := size.x
+	if width <= 0.0:
+		return
+	_dp = UiKit.dp_scale(width)
+	var ins := UiKit.safe_insets(get_viewport())
+	var inset_top := float(ins["top"])
+	var inset_bottom := float(ins["bottom"])
+
+	_top_gradient.configure(_dp)
+	_hud.configure(width, _dp, inset_top)
+	_bottom_bar.configure(width, _dp, inset_bottom)
+
+	# JS: panelBottom = barHeight + 10
+	var panel_bottom := BottomBar.bar_height(inset_bottom, _dp) + 10.0 * _dp
+	_upgrade_panel.configure(_dp, panel_bottom)
+	_coming_soon.configure(_dp, panel_bottom)
+	_offline_card.rebuild(_dp)
+
+	_apply_tab()
+	_refresh()
 
 
+func _on_tab_changed(key: String) -> void:
+	_tab = key
+	_apply_tab()
+
+
+func _apply_tab() -> void:
+	_upgrade_panel.visible = _tab == "upgrade"
+	var soon := _tab == "shop" or _tab == "cards" or _tab == "minigames"
+	_coming_soon.visible = soon
+	if soon:
+		_coming_soon.set_title(String(Strings.TABS[_tab]))
+
+
+## Pushes the game state into the UI (runs on every `Game.changed`).
 func _refresh() -> void:
 	_map.set_level(Game.level)
-	_info_label.text = "%s: %s   |   %s: %s   |   %s: %s" % [
-		Strings.MONEY, FaFormat.format_grouped(Game.money),
-		Strings.PER_SEC, FaFormat.format_rate(Game.income),
-		Strings.LEVEL, FaFormat.to_fa(Game.level),
-	]
-	for key in Balance.SECTION_KEYS:
-		var b: Button = _buttons[key]
-		var s: Dictionary = Strings.SECTIONS[key]
-		var cost: float = Game.costs[key]
-		var mark := "  ◀ " + Strings.BOTTLENECK if key == Game.info["bottleneck"] else ""
-		b.text = "%s  %s %s\n%s %s%s" % [
-			s["name"],
-			Strings.SECTION_LEVEL, FaFormat.to_fa(Game.levels[key]),
-			Strings.COST, FaFormat.format_grouped(cost),
-			mark,
-		]
-		b.disabled = Game.money < cost
+	_hud.set_state(Game.money, Game.income, Game.level)
+	if not Game.info.is_empty():
+		_upgrade_panel.refresh(Game.levels, Game.costs, Game.money, String(Game.info["bottleneck"]))
 
 
-func _refresh_offline() -> void:
-	var has_report := not Game.offline_report.is_empty()
-	_offline_label.visible = has_report
-	_ok_button.visible = has_report
-	if has_report:
-		_offline_label.text = "%s\n%s\n%s" % [
-			Strings.WELCOME_BACK,
-			Strings.OFFLINE_EARNED,
-			FaFormat.format_grouped(float(Game.offline_report["amount"])),
-		]
+func _on_offline_changed() -> void:
+	if Game.offline_report.is_empty():
+		_offline_card.hide_card()
+	else:
+		_offline_card.show_report(Game.offline_report, _dp)
+
+
+# ------------------------------------------------------------------ system bars (Android)
+
+## Hides the phone's own system bars while the game is open. Also turn on
+## "Screen > Immersive Mode" in the Android export preset (the most reliable way).
+func _hide_system_bars() -> void:
+	if OS.get_name() != "Android":
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+func _notification(what: int) -> void:
+	# Re-hide when coming back to the app (e.g. after the recents screen).
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_hide_system_bars()
