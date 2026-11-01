@@ -16,14 +16,16 @@ extends Node
 ## اگر رندر روی دستگاه ناموفق باشد (تصویر خالی)، یک‌بار با کیفیت کمتر (بدون MSAA و نصف اندازه) دوباره تلاش می‌کند
 ## و در هر حال پیام وضعیت/خطا را با سیگنال status می‌دهد (Bakery آن را روی نقشه نشان می‌دهد).
 ##
-## نور: دقیقاً همان تنظیمات اصلی (نسخه‌ی Forward+) است. هیچ سایه‌ی فیک/AO تقلبی در کار نیست.
-## نکته: SSAO و light_angular_distance فقط در Forward+/Mobile اثر دارند؛ در gl_compatibility نادیده گرفته می‌شوند.
+## نور (نسخه‌ی Compatibility): همه‌ی تنظیمات نور و محیط در shop_lighting.gd (ShopLighting) است.
+## SSAO و light_angular_distance فقط در Forward+/Mobile کار می‌کردند و حذف شده‌اند؛
+## به جایشان نور محیطی کمتر + سایه‌ی نرم PCF استفاده می‌شود تا عمق تصویر قبلی حفظ شود.
+## برای روشن‌تر/تیره‌تر کردن کل صحنه فقط ShopLighting.LIGHT_SCALE را عوض کن.
 
 ## با false کردن، Bakery دوباره مثل قبل فقط از bakery_front.webp (یا placeholder) استفاده می‌کند.
 const ENABLED := true
 
 ## بالا ببرید وقتی کد محیط عوض شد تا تصویر کش‌شده‌ی قبلی استفاده نشود.
-const BAKE_VERSION := 3
+const BAKE_VERSION := 4
 
 ## اندازه‌ی تصویر (مربع). همان محدوده‌ی ۲۰۴۸×۲۰۴۸ مرجع Bakery را پوشش می‌دهد.
 const IMAGE_SIZE := 2048
@@ -38,6 +40,8 @@ const WALL := Color("f4f7f9")
 const BREAD := Color("efe2b8")
 const GROUT := Color("8f969b")
 const TILE := Color("eef1f3")
+## رنگ پایه‌ی موزاییک ترازو: خاکستری گرم و روشن (در Compatibility قبلی سرد و سفید‌تر دیده می‌شد).
+const FLOOR_BASE := Color("c9c5c1")
 
 ## وقتی رندر تمام شد، تکسچر نهایی را می‌دهد (همان لحظه هم نود خودش را پاک می‌کند).
 signal baked(texture: Texture2D)
@@ -112,9 +116,8 @@ func _bake() -> void:
 	# یک فریم صبر می‌کنیم تا بازی (و پیام وضعیت) نشان داده شود، بعد ساخت محیط
 	await get_tree().process_frame
 
-	# اتلس سایه (۴۰۹۶ به جای ۸۱۹۲ تا روی گوشی حافظه کم نیاید)
-	RenderingServer.directional_shadow_atlas_set_size(4096, true)
-	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_HIGH)
+	# اتلس سایه (۴۰۹۶ به جای ۸۱۹۲ تا روی گوشی حافظه کم نیاید) + کیفیت سایه‌ی نرم
+	ShopLighting.configure_shadows()
 
 	_vp = SubViewport.new()
 	_vp.size = Vector2i(IMAGE_SIZE, IMAGE_SIZE)
@@ -422,6 +425,9 @@ func _flush_batches() -> void:
 		mat.roughness = 1.0
 		mat.metallic_specular = 0.0
 		mi.material_override = mat
+		# تراشه‌ها و دایره‌ها چند میلی‌متر ضخامت دارند؛ سایه‌اندازی‌شان در Compatibility فقط نویز/acne می‌سازد
+		# (سایه‌ی آن‌ها در تصویر نهایی دیده نمی‌شود). دریافت سایه روی آن‌ها سر جایش می‌ماند.
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		world.add_child(mi)
 	_batches.clear()
 
@@ -429,53 +435,10 @@ func _flush_batches() -> void:
 # ============================================================
 # نور و دوربین (ارتوگرافیک، زاویه‌ی ایزومتریک (30,30,30))
 # ============================================================
-# دقیقاً همان تنظیمات اصلی (Forward+). بدون هیچ تغییر یا سایه‌ی فیک.
+# همه‌ی مقدارها در shop_lighting.gd هستند (مخصوص gl_compatibility). این‌جا فقط صدا زده می‌شود.
 
 func _base_soft(cam_size: float, target: Vector3, bg: Color) -> void:
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.background_color = bg
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("f5f7ff")
-	env.ambient_light_energy = 0.4
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	env.tonemap_exposure = 1.0
-	env.ssao_enabled = true
-	env.ssao_radius = 1.2
-	env.ssao_intensity = 1.5
-	var we := WorldEnvironment.new()
-	we.environment = env
-	world.add_child(we)
-
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-58, 25, 0)
-	sun.light_color = Color("fffaf2")
-	sun.light_energy = 0.8
-	sun.light_angular_distance = 2.0
-	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 80.0
-	sun.shadow_bias = 0.03
-	sun.shadow_normal_bias = 0.3
-	sun.shadow_blur = 8.0
-	sun.shadow_opacity = 0.6
-	world.add_child(sun)
-
-	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-35, 200, 0)
-	fill.light_color = Color("e6ecff")
-	fill.light_energy = 0.15
-	fill.shadow_enabled = false
-	world.add_child(fill)
-
-	var cam := Camera3D.new()
-	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.keep_aspect = Camera3D.KEEP_WIDTH
-	cam.size = cam_size
-	cam.far = 120.0
-	world.add_child(cam)
-	cam.look_at_from_position(target + Vector3(30, 30, 30), target, Vector3.UP)
-	cam.current = true
+	ShopLighting.apply(world, cam_size, target, bg)
 
 
 # ============================================================
@@ -508,9 +471,9 @@ func ceramic_z(z: float, x0: float, x1: float, y0: float, y1: float, tw: float =
 			box(Vector3(x0 + sx * (i + 0.5), y0 + sy * (j + 0.5), z + 0.012), Vector3(sx - gap, sy - gap, 0.016), TILE)
 
 
-# موزاییک ترازو: زمینه‌ی کرم + تراشه‌های بسیار ریز رنگی
+# موزاییک ترازو: زمینه‌ی خاکستری گرم + تراشه‌های بسیار ریز رنگی
 func terrazzo_tile(cx: float, cz: float, rng: RandomNumberGenerator) -> void:
-	var base := Color("c5c5c5ff")
+	var base := FLOOR_BASE
 	base = base.lightened(rng.randf_range(-0.03, 0.03))
 	box(Vector3(cx, 0.01, cz), Vector3(0.98, 0.02, 0.98), base)
 	var chips := [
@@ -691,7 +654,7 @@ func _build_front() -> void:
 	_base_soft(CAM_SIZE, Vector3(0, 1.0, 0), Color("e8d9b5"))
 
 	# کف موزاییک ترازو 12 در 12
-	box(Vector3(0, -0.25, 0), Vector3(12, 0.5, 12), Color("c5c5c5ff"))
+	box(Vector3(0, -0.25, 0), Vector3(12, 0.5, 12), FLOOR_BASE)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for i in range(12):
