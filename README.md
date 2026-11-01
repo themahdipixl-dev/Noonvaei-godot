@@ -5,7 +5,7 @@
 - ریپوی مبدأ (React Native): [`themahdipixl-dev/Noonvaei`](https://github.com/themahdipixl-dev/Noonvaei)
 - ریپوی مقصد (همین ریپو): `themahdipixl-dev/Noonvaei-godot`
 
-> ⚠️ **وضعیت تست:** کدها «ترجمهٔ ایستا» هستند و داخل ادیتور Godot اجرا/تست **نشده‌اند**. اولین بار که پروژه را باز می‌کنید ممکن است چند خطا/هشدار کوچک ببینید؛ لطفاً خروجی Output/Debugger را برای ما بفرستید تا در بخش بعد اصلاح شود.
+> ⚠️ **وضعیت تست:** کدها «ترجمهٔ ایستا» هستند و داخل ادیتور Godot اجرا/تست **نشده‌اند**. اولین بار که پروژه را باز می‌کنید ممکن است چند خطا/هشدار کوچک ببینید؛ لطفاً خروجی Output/Debugger را برای ما بفرستید تا اصلاح شود.
 
 ---
 
@@ -18,7 +18,7 @@
 | **۱** | بنیاد پروژه، تنظیمات، منطق بازی (اقتصاد/ذخیره)، ابزارهای کمکی UI | `app.json`، `package.json`، `config/*`، `game/*`، `ui/format.js`، `ui/theme.js`، `ui/Fonts.js` | ✅ **انجام شد** |
 | **۲** | دنیای بازی: نقشه، دوربین (pan/zoom)، ایزومتریک، نانوایی | `scene/*`، `world/WorldMap.js`، `WorldScene.js`، `Bakery.js`، `worldConfig.js`، `useWorldCamera.js` | ✅ **انجام شد** |
 | **۳** | رابط کاربری: HUD، نوار پایین، پنل ارتقا، کارت آفلاین و سرهم‌کردن صحنهٔ اصلی (معادل `App.js`) | `ui/*` (Hud، BottomBar، UpgradePanel، OfflineCard، ComingSoon، Background، TopGradient، Icons) + `App.js` | ✅ **انجام شد** (آیکن‌ها فعلاً ایموجی) |
-| **۴** | شخصیت‌های متحرک: شاطر و ماشین + فیزیک ماشین، خروجی اندروید، مرتب‌سازی نهایی | `world/BakerWalker.js`، `CarDriver.js`، `carPhysics.js` | ⏳ بعدی |
+| **۴** | شخصیت‌های متحرک: شاطر و ماشین + فیزیک ماشین، خروجی اندروید، مرتب‌سازی نهایی | `world/BakerWalker.js`، `CarDriver.js`، `carPhysics.js` | ✅ **انجام شد** (شاطر و ماشین تا آماده شدن تصاویر، placeholder هستند) |
 
 ---
 
@@ -26,10 +26,76 @@
 
 1. **Godot 4.3 یا جدیدتر** را نصب کنید و پوشهٔ پروژه را **داخل خود ادیتور** باز کنید (بار اول ادیتور `class_name`ها را اسکن می‌کند).
 2. **فونت‌ها** → `assets/fonts/` (نام‌ها در `assets/fonts/README.md`).
-3. **تصویرهای محیط** → `assets/environment/` و بقیه (نام‌ها و مسیرها در `assets/README.md`). برای بخش ۲ فقط ۴ فایل `bakery_front`، `bakery_belt`، `bakery_cutter`، `bakery_bread_1` لازم است.
-4. *(اختیاری، بخش ۳)* اگر ایموجی‌ها روی دستگاه شما نمایش داده نشد، فایل `NotoColorEmoji.ttf` را در `assets/fonts/` بگذارید (به‌صورت خودکار fallback همهٔ فونت‌ها می‌شود).
-5. برای مخفی‌شدن نوار سیستم در اندروید: در Export Preset اندروید گزینهٔ **Screen › Immersive Mode** را روشن کنید.
+3. **تصویرهای محیط، شاطر و ماشین** → `assets/environment/`، `assets/characters/baker/` و `assets/vehicles/peugeot_pars/` (نام‌ها و مسیرها در `assets/README.md`). بدون تصویر هم بازی اجرا می‌شود و به‌جای آن‌ها placeholder نشان داده می‌شود.
+4. *(اختیاری)* اگر ایموجی‌ها روی دستگاه شما نمایش داده نشد، فایل `NotoColorEmoji.ttf` را در `assets/fonts/` بگذارید (به‌صورت خودکار fallback همهٔ فونت‌ها می‌شود).
+5. برای خروجی اندروید به بخش «خروجی اندروید» در بخش ۴ (پایین‌تر) نگاه کنید. Export Preset آماده است و Immersive Mode در آن روشن است.
 6. صحنهٔ اصلی را اجرا کنید (F5).
+
+---
+
+## بخش ۴ — شاطر، ماشین و خروجی اندروید (انجام شد)
+
+### نگاشت فایل‌ها
+| React Native | Godot | توضیح |
+|---|---|---|
+| `world/carPhysics.js` | `scripts/world/car_physics.gd` (`class_name CarPhysics`) | مسیر با پیچ‌های گرد، نمونه‌گیری و مدل راننده (شتاب / ترمز / پیچ / چراغ). تابع‌های `static` ساده، بدون worklet |
+| `world/BakerWalker.js` | `scripts/world/baker_walker.gd` (`class_name BakerWalker`) | گشت شاطر بین نقطه‌های توقف؛ همان جدول زمانی، ۸ فریم راه‌رفتن و تصویر ایستاده هنگام توقف |
+| `world/CarDriver.js` | `scripts/world/car_driver.gd` (`class_name CarDriver`) | ماشین در حال رانندگی: ۴ جهت، اسپریت‌شیت پیچ ۹۰ درجه، چرخ‌های چرخان، سایه روی زمین |
+| — (جدید) | `scripts/world/draw_proxy.gd` (`class_name DrawProxy`) | نود کوچکی که اجازه می‌دهد شاطر / ماشین سایه و placeholder را با `draw_*` بکشند |
+| `world/WorldScene.js` (بخش actors) | `scripts/world/world_scene.gd` | نود `Actors` حالا `BakerWalker` و همهٔ ماشین‌های `WorldConfig.cars()` را می‌سازد (همان ترتیب RN: زمین → نانوایی → شاطر → ماشین) |
+| `app.json` (اندروید) | `export_presets.cfg` + `project.godot` | Export Preset اندروید (arm64، Immersive Mode) + فشرده‌سازی ETC2/ASTC |
+
+### معادل‌سازی مفاهیم
+| React Native | Godot |
+|---|---|
+| `useSharedValue` + `useFrameCallback` | متغیرهای ساده + `_process(delta)` (ماشین: `delta` حداکثر ۰٫۰۵ ثانیه، مثل JS) |
+| `withRepeat(withTiming(total))` | `_time = fmod(_time + delta, total)` |
+| `useAnimatedStyle` (opacity) | `visible` روی نودهای هر جهت |
+| نوار راه‌رفتن با `translateX` در یک View بریده‌شده | `Sprite2D` با `hframes = 8` و تغییر `frame` |
+| اسپریت‌شیت پیچ ماشین (`translateX/Y`) | `Sprite2D` با `hframes = 5`، `vframes = 4` و `frame` |
+| Rim: `rotate` + `scaleX` روی View | `Node2D` (`rotation_degrees` + `scale.x`) که یک `Sprite2D` چرخان داخلش است |
+| `react-native-svg` (سایهٔ شاطر: RadialGradient، سایهٔ ماشین: Polygon) | `GradientTexture2D` رادیال / `draw_colored_polygon()` |
+| `Image.getSize` (خواندن ابعاد baker_view) | اندازهٔ تکسچر (همان لحظه موجود است) |
+| `toGrid` در BakerWalker (کسر تصویر → گرید) | `Iso.unproject(canvas_origin + کسر × canvas_size)` — همان نتیجه، محاسبهٔ کوتاه‌تر |
+
+### رفتار (دقیقاً مثل RN)
+- **شاطر:** بین نقطه‌های `WALKER.stops` راه می‌رود؛ هرجا `wait` دارد می‌ایستد و به سمت `face` نگاه می‌کند؛ بعد از آخرین نقطه به اولی برمی‌گردد. راه‌رفتن در هر مسیر دقیقاً عدد صحیحی از چرخه‌های ۸ فریمی است تا روی حالت «پاها جفت» تمام شود.
+- **ماشین:** مسیر بسته با گوشه‌های گرد (`corner_radius`)؛ از سکون شتاب می‌گیرد (`start_delay` = ۱٫۵ ثانیه)، در پیچ‌ها آهسته می‌شود و پشت چراغ‌های قرمز خیالی (`lights`) کاملاً می‌ایستد و `stop_for` ثانیه می‌ماند.
+- **چرخ‌ها:** با مسافت طی‌شده می‌چرخند (`wheel_circ`) و به شکل بیضی کج دیده می‌شوند (`rim_k` و `rim_rot`).
+- **پیچ:** وقتی ماشین بین دو جهت اصلی است (فریم‌های بین ۴ جهت)، لایه‌های جهت مخفی می‌شوند و اسپریت‌شیت پیچ نشان داده می‌شود.
+- یک لرزش کوچک جاده (`bob`) هم وجود دارد، فقط وقتی ماشین در حال حرکت است.
+
+### Placeholder (تا وقتی تصاویر اضافه نشده)
+اگر تصاویر داخل پروژه نباشند، کد کرش نمی‌کند و به‌جای آن‌ها چیزی کشیده می‌شود که بتوان رفتار را تست کرد:
+- **شاطر:** یک آدمک ساده (تنه کرم، کله و کلاه، پاهای در حال راه‌رفتن) همراه با سایه. وقتی رو به دوربین است (sw / se) چشم دارد.
+- **ماشین:** یک جعبهٔ ایزومتریک (بدنه + کابین) که در جهت مسیر می‌چرخد، با سایهٔ واقعی روی زمین.
+- سایه‌ها همیشه کشیده می‌شوند.
+- با اضافه شدن تصاویر واقعی (بدون هیچ تغییر در کد) خودکار جای placeholder می‌نشینند. شاطر وقتی هر ۴ شیت راه‌رفتن موجود باشند از تصویر واقعی استفاده می‌کند (و اگر `baker_view` نباشد، حالت ایستاده همان فریم «پاها جفت» است). ماشین وقتی هر ۴ تصویر جهت موجود باشند از تصویر واقعی استفاده می‌کند (چرخ‌ها و پیچ هم اگر فایل‌شان باشد).
+
+### تفاوت‌ها / نکات
+- کلیدهای `WALKER` و `CARS` در `world_config.gd` به‌صورت `snake_case` هستند (مثلاً `corner_radius`، `brake_max`، `stop_for`).
+- زمان بر حسب ثانیه است (نه میلی‌ثانیه).
+- تابع `lightState` و تنظیم `reaction` که در نسخهٔ JS هیچ‌جا استفاده نمی‌شدند منتقل نشدند (`reaction` همچنان در `world_config.gd` مانده).
+- `debug` در `WALKER` نقطه‌های توقف را با دایره‌های قرمز نشان می‌دهد. `debug` ماشین (کادر قرمز روی چرخ‌ها) منتقل نشد.
+- برای تنظیم متفاوت شاطر یا ماشین فقط `world_config.gd` را عوض کنید. ماشین جدید = یک اندیس جدید در `WorldConfig.cars()` و یک id جدید در `EnvironmentAssets.VEHICLE_IDS`.
+
+### خروجی اندروید
+1. در ادیتور: *Editor > Manage Export Templates* → تمپلیت‌های همان نسخهٔ Godot را نصب کنید.
+2. *Editor Settings > Export > Android*: مسیر Android SDK و JDK را بدهید (و یک debug keystore اگر ندارید).
+3. *Project > Export* → پریست **Android** از قبل آماده است (`export_presets.cfg`): `arm64-v8a`، نام پکیج `com.noonvaei.game`، **Immersive Mode روشن**؛ حالت portrait هم در `project.godot` تنظیم است. ادیتور ممکن است بار اول گزینه‌های جاافتادهٔ پریست را خودش اضافه کند.
+4. تنظیم `Rendering > Textures > VRAM Compression > Import ETC2 ASTC` روشن شده است (برای خروجی اندروید لازم است، وگرنه خطا می‌دهد). بعد از باز شدن پروژه ممکن است ادیتور بخواهد تصاویر را دوباره import کند.
+5. *Export Project* یا دکمهٔ «Remote Debug» (گوشی متصل با USB debugging) برای تست روی گوشی واقعی.
+6. برای انتشار روی فروشگاه‌ها: پریست را روی AAB و امضای release بگذارید (نیاز به keystore شخصی، که در ریپو نیست و نباید کامیت شود).
+
+### چک‌لیست تست بخش ۴
+- [ ] (بدون تصویر) شاطر placeholder بین دو نقطهٔ نانوایی راه می‌رود، هرجا می‌رسد حدود ۴ ثانیه می‌ایستد و بعد ادامه می‌دهد (حلقهٔ بی‌نهایت)
+- [ ] (بدون تصویر) ماشین placeholder یک مسیر مستطیلی را دور نانوایی می‌رود: اول ۱.۵ ثانیه می‌ایستد، در گوشه‌ها آهسته می‌شود، در هر دو چراغ ۵ ثانیه کاملاً می‌ایستد
+- [ ] سایه‌های شاطر و ماشین روی زمین دیده می‌شوند و با جهت ماشین می‌چرخند
+- [ ] با pan / zoom نقشه، شاطر و ماشین همان‌جایی که هستند روی زمین می‌مانند (نلغزند)
+- [ ] کشیدن نقشه و دکمه‌های بخش ۳ همچنان درست کار می‌کنند
+- [ ] (با تصاویر) شاطر با جهت حرکت، ۴ جهتش را عوض می‌کند و هنگام توقف تصویر ایستاده (`baker_view`) به همان جهت `face` نشان داده می‌شود
+- [ ] (با تصاویر) ماشین جهت را صاف عوض می‌کند، در پیچ‌ها اسپریت‌شیت پیچ بدون پرش در اندازه نشان داده می‌شود، و چرخ‌ها متناسب با سرعت می‌چرخند (وقتی ماشین می‌ایستد نمی‌چرخند)
+- [ ] خروجی APK اندروید گرفته می‌شود، روی گوشی تمام‌صفحه (بدون نوار سیستم) اجرا می‌شود، HUD زیر ناچ و نوار پایین بالای خط ژست می‌ماند
 
 ---
 
@@ -108,10 +174,10 @@
 |---|---|---|
 | `scene/iso.js` | `scripts/scene/iso.gd` (`class_name Iso`) | نگاشت گرید → مختصات صفحه (`project`)، `shade` و `box_colors`. از تابع به کلاس تغییر کرد (همان closure مورد استفادهٔ `makeProjector`) |
 | `scene/environmentAssets.js` | `scripts/scene/environment_assets.gd` (`class_name EnvironmentAssets`) | مسیر تصویرها، تابع `get_texture`، `preload_all` (با `ResourceLoader.load_threaded_request`) |
-| `world/worldConfig.js` | `scripts/world/world_config.gd` (`class_name WorldConfig`) | همهٔ اعداد منتقل شدند، از جمله `WALKER` و `CARS` که فقط در بخش ۴ استفاده می‌شوند |
+| `world/worldConfig.js` | `scripts/world/world_config.gd` (`class_name WorldConfig`) | همهٔ اعداد منتقل شدند، از جمله `WALKER` و `CARS` که در بخش ۴ استفاده می‌شوند |
 | `world/useWorldCamera.js` | `scripts/world/world_camera.gd` (`class_name WorldCamera`) | منطق pan / pinch-zoom (بدون نود؛ فقط محاسبه) |
 | `world/WorldMap.js` | `scripts/world/world_map.gd` (`class_name WorldMap`) | کنترل تمام‌صفحه + دریافت لمس + نود `Content` |
-| `world/WorldScene.js` | `scripts/world/world_scene.gd` (`class_name WorldScene`) | زمین با `_draw()` + نانوایی + نود `Actors` (جای شاطر و ماشین در بخش ۴) |
+| `world/WorldScene.js` | `scripts/world/world_scene.gd` (`class_name WorldScene`) | زمین با `_draw()` + نانوایی + نود `Actors` (جای شاطر و ماشین، ساخته‌شده در بخش ۴) |
 | `world/Bakery.js` | `scripts/world/bakery.gd` (`class_name Bakery`) | لایه‌های `Sprite2D` (front → belt → lavash → cutter) |
 | `App.js` (بخشی) | `scripts/main.gd` | در بخش ۳ به صحنهٔ اصلی کامل تبدیل شد |
 
@@ -134,7 +200,7 @@
 
 ### چیزهایی که اضافه شد (در نسخهٔ RN نبود)
 - **چرخ ماوس و trackpad** برای زوم روی کامپیوتر (برای تست راحت‌تر). کشیدن با ماوس هم کار می‌کند (`emulate_touch_from_mouse`).
-- `Iso.unproject()` برای تبدیل مختصات صفحه به گرید (بخش ۴ لازم دارد).
+- `Iso.unproject()` برای تبدیل مختصات صفحه به گرید (بخش ۴ از آن استفاده می‌کند).
 - `Bakery.set_lavash_stage(0..4)`: دادهٔ ۵ مرحلهٔ نان لواش در فایل JS بود ولی فقط مرحله ۱ نمایش داده می‌شد؛ حالا قابل تغییر است.
 - **placeholder:** اگر `bakery_front.webp` داخل پروژه نباشد، یک جعبهٔ ایزومتریک زرد نشان داده می‌شود تا بتوانید دوربین را بدون آرت تست کنید.
 
@@ -148,7 +214,7 @@
 - [ ] چرخ ماوس / pinch دو انگشتی زوم می‌کند و نقطهٔ زیر انگشت/ماوس تقریباً ثابت می‌ماند
 - [ ] کشیدن نقشه وقتی انگشت روی دکمه‌های HUD شروع شده نقشه را حرکت نمی‌دهد
 - [ ] (با تصاویر) لایه‌های front / belt / lavash / cutter دقیقاً روی هم می‌نشینند
-- [ ] (با تصاویر) اگر با زوم کم (۰.۲۵) تصویر لرزش/دنده‌دار شد، در Import تصاویر گزینهٔ `Mipmaps > Generate` را روشن کنید
+- [ ] (با تصاویر) اگر با زوم کم (۰.۲۵) تصویر لرزش/دنده‌ای شد، در Import تصاویر گزینهٔ `Mipmaps > Generate` را روشن کنید
 
 > اگر کشیدن با **انگشت روی گوشی واقعی** کار نکرد (ولی با ماوس کار کرد)، به من بگویید. یکی از نقاطی که ممکن است نیاز به اصلاح داشته باشد همین دریافت لمس در `_gui_input` است.
 
@@ -201,6 +267,7 @@
 ```
 Noonvaei-godot/
 ├── project.godot
+├── export_presets.cfg       # پریست خروجی اندروید
 ├── icon.svg
 ├── assets/
 │   ├── README.md            # لیست تصاویر لازم
@@ -212,12 +279,16 @@ Noonvaei-godot/
     ├── config/  balance.gd, strings.gd
     ├── game/    economy.gd, storage.gd, game_state.gd (Autoload: Game)
     ├── scene/   iso.gd, environment_assets.gd
-    ├── world/   world_config.gd, world_camera.gd, world_map.gd, world_scene.gd, bakery.gd
+    ├── world/   world_config.gd, world_camera.gd, world_map.gd, world_scene.gd, bakery.gd,
+    │            car_physics.gd, baker_walker.gd, car_driver.gd, draw_proxy.gd
     └── ui/      palette.gd, fa_format.gd, app_fonts.gd,
                  ui_kit.gd, icons.gd, cartoon_button.gd, hud_bar.gd, hud.gd,
                  bottom_bar.gd, upgrade_panel.gd, offline_card.gd, coming_soon.gd,
                  top_gradient.gd, background.gd
 ```
 
-## بخش بعدی (۴)
-شخصیت‌های متحرک: `BakerWalker` (شاطر)، `CarDriver` (ماشین) و `carPhysics`، به‌علاوهٔ خروجی اندروید و مرتب‌سازی نهایی.
+## کارهای باقی‌مانده (بعد از بخش ۴)
+- گذاشتن تصاویر واقعی محیط، شاطر و ماشین داخل `assets/` و چک کردن هماهنگی اندازه‌های `WALKER` / `CARS` با آن‌ها.
+- جایگزینی ایموجی‌های `icons.gd` با تکسچر آیکن‌های واقعی.
+- وصل کردن سیگنال‌های دکمه‌های HUD به منو/صفحه‌های آینده (تنظیمات، ماموریت، شهرها، فروشگاه ...).
+- اجرای واقعی در Godot و رفع خطاهای احتمالی.
