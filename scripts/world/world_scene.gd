@@ -1,18 +1,19 @@
 class_name WorldScene
 extends Node2D
-## The world content: ground + bakery (+ actors in Part 4). Port of src/world/WorldScene.js
+## The world content: ground + bakery + actors. Port of src/world/WorldScene.js
 ##
-## JS: ground = one SVG polygon; bakery = <Image> layers on top.
-## Godot: ground = _draw() polygon; bakery = Bakery node (Sprite2D layers).
+## JS: ground = one SVG polygon; bakery = <Image> layers on top; then BakerWalker and the CarDrivers.
+## Godot: ground = _draw() polygon; bakery = Bakery node (Sprite2D layers); actors = BakerWalker + CarDriver nodes.
 ##
 ## Draw order (back to front) is the child order, like the JS file:
-##   ground (_draw of this node) -> Bakery -> Actors (BakerWalker, CarDriver in Part 4)
+##   ground (_draw of this node) -> Bakery -> Actors (BakerWalker, then the cars)
 
 var projector: Iso
 var content_size := Vector2.ZERO
 var bakery: Bakery
-## Part 4 adds BakerWalker and CarDriver nodes here.
 var actors: Node2D
+var baker: BakerWalker
+var cars: Array[CarDriver] = []
 
 var _ground := PackedVector2Array()
 
@@ -34,6 +35,18 @@ func setup(p_content_size: Vector2) -> void:
 	actors = Node2D.new()
 	actors.name = "Actors"
 	add_child(actors)
+
+	baker = BakerWalker.new()
+	baker.name = "BakerWalker"
+	actors.add_child(baker)
+	baker.setup(projector, bakery)
+
+	for car in WorldConfig.cars():
+		var driver := CarDriver.new()
+		driver.name = "Car_%s" % String(car["id"])
+		actors.add_child(driver)
+		driver.setup(car, projector)
+		cars.append(driver)
 
 	queue_redraw()
 
