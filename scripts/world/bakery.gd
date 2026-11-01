@@ -6,7 +6,9 @@ extends Node2D
 ## (same canvas as bakery_front.webp, which is NOT cropped).
 ##
 ## Layer order: front, belt, lavash, cutter.
-## If bakery_front.webp is missing, a placeholder box is drawn instead (so the scene is testable without art).
+## The "front" layer is the 3D shop (ShopFront3D renders it once into a texture, same canvas as
+## bakery_front.webp). Until it is ready - or if ShopFront3D.ENABLED is false and there is no
+## bakery_front.webp - a placeholder box is drawn instead.
 
 const REF := 2048.0
 
@@ -56,6 +58,25 @@ func setup(projector: Iso, tile_w: float, gx: float, gy: float) -> void:
 	_lavash = _add_layer(EnvironmentAssets.LAVASH[0], crop_rect(LAVASH_BOXES[0]))
 	_cutter = _add_layer(EnvironmentAssets.BAKERY_CUTTER, crop_rect(CUTTER_BOX))
 	queue_redraw()
+
+	if ShopFront3D.ENABLED:
+		_start_3d_front()
+
+
+## Builds / loads the 3D shop and puts it on the "front" layer when it is ready.
+func _start_3d_front() -> void:
+	var shop := ShopFront3D.new()
+	shop.name = "ShopFront3D"
+	shop.baked.connect(_on_front_baked)
+	add_child(shop)
+	shop.start()
+
+
+func _on_front_baked(tex: Texture2D) -> void:
+	_front.texture = tex
+	_front.scale = Vector2(_canvas_size, _canvas_size) / tex.get_size()
+	_front.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	queue_redraw()  # hides the placeholder
 
 
 ## Position / size in world px of a layer cropped with box [up, down, left, right].
