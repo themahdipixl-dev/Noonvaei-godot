@@ -16,13 +16,16 @@ extends Node
 ## اگر رندر روی دستگاه ناموفق باشد (تصویر خالی)، یک‌بار با کیفیت کمتر (بدون MSAA و نصف اندازه) دوباره تلاش می‌کند
 ## و در هر حال پیام وضعیت/خطا را با سیگنال status می‌دهد (Bakery آن را روی نقشه نشان می‌دهد).
 ##
-## نکته: SSAO فقط در Forward+ کار می‌کند؛ در gl_compatibility (رندرر فعلی پروژه) نادیده گرفته می‌شود.
+## رندرر: پروژه روی gl_compatibility است. SSAO و light_angular_distance (سایه‌ی نرم PCSS) فقط در Forward+/Mobile
+## کار می‌کنند؛ پس در Compatibility این‌ها خاموش‌اند و به جایشان:
+##   - نور محیط کمتر، نور خورشید و تیرگی سایه کمی بیشتر (تا حجم از دست نرود)،
+##   - سایه‌ی تماس تقلبی (AO تقلبی): لکه‌های تیره‌ی نرم زیر دستگاه‌ها و کنار دیوارها (_fake_ao).
 
 ## با false کردن، Bakery دوباره مثل قبل فقط از bakery_front.webp (یا placeholder) استفاده می‌کند.
 const ENABLED := true
 
 ## بالا ببرید وقتی کد محیط عوض شد تا تصویر کش‌شده‌ی قبلی استفاده نشود.
-const BAKE_VERSION := 1
+const BAKE_VERSION := 2
 
 ## اندازه‌ی تصویر (مربع). همان محدوده‌ی ۲۰۴۸×۲۰۴۸ مرجع Bakery را پوشش می‌دهد.
 const IMAGE_SIZE := 2048
@@ -430,17 +433,24 @@ func _flush_batches() -> void:
 # ============================================================
 
 func _base_soft(cam_size: float, target: Vector3, bg: Color) -> void:
+	# SSAO فقط در Forward+ کار می‌کند؛ PCSS (light_angular_distance) در Compatibility نیست.
+	var method: String = RenderingServer.get_current_rendering_method()
+	var has_ssao: bool = method == "forward_plus"
+	var has_pcss: bool = method != "gl_compatibility"
+
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CLEAR_COLOR
 	env.background_color = bg
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("f5f7ff")
-	env.ambient_light_energy = 0.4
+	# بدون SSAO، نور محیط کمتر تا گوشه‌ها و زیر اجسام صاف و بی‌حجم نشود
+	env.ambient_light_energy = 0.4 if has_ssao else 0.3
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = 1.0
-	env.ssao_enabled = true
-	env.ssao_radius = 1.2
-	env.ssao_intensity = 1.5
+	if has_ssao:
+		env.ssao_enabled = true
+		env.ssao_radius = 1.2
+		env.ssao_intensity = 1.5
 	var we := WorldEnvironment.new()
 	we.environment = env
 	world.add_child(we)
@@ -448,21 +458,23 @@ func _base_soft(cam_size: float, target: Vector3, bg: Color) -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-58, 25, 0)
 	sun.light_color = Color("fffaf2")
-	sun.light_energy = 0.8
-	sun.light_angular_distance = 2.0
+	# در Compatibility کمی قوی‌تر و سایه‌ی پررنگ‌تر برای جبران نبودن SSAO
+	sun.light_energy = 0.8 if has_ssao else 0.95
+	if has_pcss:
+		sun.light_angular_distance = 2.0
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 80.0
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 0.3
-	sun.shadow_blur = 8.0
-	sun.shadow_opacity = 0.6
+	sun.shadow_blur = 8.0 if has_pcss else 2.0
+	sun.shadow_opacity = 0.6 if has_ssao else 0.72
 	world.add_child(sun)
 
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-35, 200, 0)
 	fill.light_color = Color("e6ecff")
-	fill.light_energy = 0.15
+	fill.light_energy = 0.15 if has_ssao else 0.18
 	fill.shadow_enabled = false
 	world.add_child(fill)
 
@@ -474,6 +486,55 @@ func _base_soft(cam_size: float, target: Vector3, bg: Color) -> void:
 	world.add_child(cam)
 	cam.look_at_from_position(target + Vector3(30, 30, 30), target, Vector3.UP)
 	cam.current = true
+
+
+# ============================================================
+# AO تقلبی (جایگزین SSAO در Compatibility)
+# ============================================================
+
+## لکه‌ی سایه‌ی نرم روی کف، به مرکز (cx, cz) و اندازه‌ی sx × sz.
+## چند لایه‌ی شفاف تو در تو (از بزرگ به کوچک) → وسط تیره‌تر و لبه‌ها محو.
+## strength تقریباً تیرگی وسط است (۰ تا ۱).
+func ao_rect(cx: float, cz: float, sx: float, sz: float, strength: float = 0.5) -> void:
+	var layers := 4
+	var alpha: float = clampf(strength, 0.0, 1.0) * 0.2
+	for i in range(layers):
+		var grow: float = 0.3 * float(layers - 1 - i) / float(layers - 1)
+		var m := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = Vector3(sx + 2.0 * grow, 0.002, sz + 2.0 * grow)
+		m.mesh = b
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(0.05, 0.04, 0.03, alpha)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.material_override = mat
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# کمی بالاتر از تراشه‌های موزاییک (۰٫۰۲۵)؛ هر لایه ۰٫۰۰۰۵ بالاتر
+		m.position = Vector3(cx, 0.03 + 0.0005 * i, cz)
+		world.add_child(m)
+
+
+## سایه‌ی تماس زیر دستگاه‌ها و میزها و کنار دیوارها (مختصات دنیا، بعد از ساخت همه‌چیز).
+func _fake_ao() -> void:
+	# کنار دیوارها
+	ao_rect(-5.8, 0.0, 0.5, 12.0, 0.5)
+	ao_rect(-1.5, -5.8, 9.0, 0.5, 0.5)
+	ao_rect(5.9, -5.8, 0.8, 0.5, 0.5)
+	ao_rect(5.8, 0.0, 0.4, 12.0, 0.35)
+	# تنور
+	ao_rect(-3.95, -1.0, 4.3, 2.3, 0.6)
+	# مخزن خمیر، نوار و واحد غلتک
+	ao_rect(-4.95, -4.8, 1.8, 1.8, 0.4)
+	ao_rect(-4.95, -3.5, 0.7, 3.1, 0.4)
+	ao_rect(-4.95, -2.3, 1.1, 0.9, 0.5)
+	# تسمه‌ی توری و میز کوتاه
+	ao_rect(-0.45, -1.0, 4.0, 1.4, 0.35)
+	ao_rect(2.9, -1.0, 2.6, 1.7, 0.4)
+	# میز فروش
+	ao_rect(0.0, 4.4, 5.2, 2.8, 0.45)
+	# قفسه‌ی نان
+	ao_rect(-5.5, 4.0, 1.0, 3.9, 0.4)
 
 
 # ============================================================
@@ -842,3 +903,7 @@ func _build_front() -> void:
 	mesh_table(0.0, 4.4, 5.0, 2.6, 1.0)
 	bag_stack(1.2, 1.17, 4.4, 0.77, 1.4, 0.2, rng, 20)
 	card_reader(2.0, 1.07, 4.4)
+
+	# سایه‌ی تماس تقلبی (بدون SSAO در Compatibility)؛ آخر از همه تا روی بقیه‌ی تراشه‌های کف بیفتد
+	if RenderingServer.get_current_rendering_method() != "forward_plus":
+		_fake_ao()
