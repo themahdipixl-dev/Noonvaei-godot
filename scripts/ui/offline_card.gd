@@ -116,7 +116,9 @@ func _build() -> void:
 	col.add_child(btn_wrap)
 
 
-func _wrapped(text: String, size: float, color: Color, font_key: String) -> Label:
-	var l := UiKit.make_label(text, size, color, font_key)
+# NOTE: the parameter is called `font_px`, not `size`: `size` would shadow Control.size
+# (debugger warning SHADOWED_VARIABLE_BASE_CLASS).
+func _wrapped(text: String, font_px: float, color: Color, font_key: String) -> Label:
+	var l := UiKit.make_label(text, font_px, color, font_key)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
