@@ -17,8 +17,8 @@
 |---|---|---|---|
 | **۱** | بنیاد پروژه، تنظیمات، منطق بازی (اقتصاد/ذخیره)، ابزارهای کمکی UI | `app.json`، `package.json`، `config/*`، `game/*`، `ui/format.js`، `ui/theme.js`، `ui/Fonts.js` | ✅ **انجام شد** |
 | **۲** | دنیای بازی: نقشه، دوربین (pan/zoom)، ایزومتریک، نانوایی | `scene/*`، `world/WorldMap.js`، `WorldScene.js`، `Bakery.js`، `worldConfig.js`، `useWorldCamera.js` | ✅ **انجام شد** |
-| **۳** | رابط کاربری: HUD، نوار پایین، پنل ارتقا، کارت آفلاین و سرهم‌کردن صحنهٔ اصلی (معادل `App.js`) | `ui/*` (Hud، BottomBar، UpgradePanel، OfflineCard، ComingSoon، Background، TopGradient، Icons) + `App.js` | ⏳ بعدی |
-| **۴** | شخصیت‌های متحرک: شاطر و ماشین + فیزیک ماشین، خروجی اندروید، مرتب‌سازی نهایی | `world/BakerWalker.js`، `CarDriver.js`، `carPhysics.js` | ⏳ |
+| **۳** | رابط کاربری: HUD، نوار پایین، پنل ارتقا، کارت آفلاین و سرهم‌کردن صحنهٔ اصلی (معادل `App.js`) | `ui/*` (Hud، BottomBar، UpgradePanel، OfflineCard، ComingSoon، Background، TopGradient، Icons) + `App.js` | ✅ **انجام شد** (آیکن‌ها فعلاً ایموجی) |
+| **۴** | شخصیت‌های متحرک: شاطر و ماشین + فیزیک ماشین، خروجی اندروید، مرتب‌سازی نهایی | `world/BakerWalker.js`، `CarDriver.js`، `carPhysics.js` | ⏳ بعدی |
 
 ---
 
@@ -27,7 +27,77 @@
 1. **Godot 4.3 یا جدیدتر** را نصب کنید و پوشهٔ پروژه را **داخل خود ادیتور** باز کنید (بار اول ادیتور `class_name`ها را اسکن می‌کند).
 2. **فونت‌ها** → `assets/fonts/` (نام‌ها در `assets/fonts/README.md`).
 3. **تصویرهای محیط** → `assets/environment/` و بقیه (نام‌ها و مسیرها در `assets/README.md`). برای بخش ۲ فقط ۴ فایل `bakery_front`، `bakery_belt`، `bakery_cutter`، `bakery_bread_1` لازم است.
-4. صحنهٔ اصلی را اجرا کنید (F5).
+4. *(اختیاری، بخش ۳)* اگر ایموجی‌ها روی دستگاه شما نمایش داده نشد، فایل `NotoColorEmoji.ttf` را در `assets/fonts/` بگذارید (به‌صورت خودکار fallback همهٔ فونت‌ها می‌شود).
+5. برای مخفی‌شدن نوار سیستم در اندروید: در Export Preset اندروید گزینهٔ **Screen › Immersive Mode** را روشن کنید.
+6. صحنهٔ اصلی را اجرا کنید (F5).
+
+---
+
+## بخش ۳ — رابط کاربری و صحنهٔ اصلی (انجام شد)
+
+### نگاشت فایل‌ها
+| React Native | Godot | توضیح |
+|---|---|---|
+| `ui/Hud.js` | `scripts/ui/hud.gd` (`class_name Hud`) | همان مختصات طراحی (۷۸۰ پیکسل) و همان مقیاس‌دهی؛ ریشه mouse را نادیده می‌گیرد (`box-none`)، فقط دکمه‌ها لمس می‌گیرند |
+| `Btn` / `PlusBtn` در `Hud.js` | `scripts/ui/cartoon_button.gd` (`CartoonButton`) | دکمهٔ کارتونی: خط دور + لبهٔ سه‌بعدی + نور بالا + فرو رفتن هنگام لمس |
+| `Bar` در `Hud.js` | `scripts/ui/hud_bar.gd` (`HudBar`) | نوار پیشرفت (با `_draw()`) |
+| `ui/BottomBar.js` | `scripts/ui/bottom_bar.gd` (`class_name BottomBar`) | ۵ بخش با خط جداکننده؛ تب فعال بزرگ‌تر می‌شود (انیمیشن Tween جای `LayoutAnimation`) |
+| `ui/UpgradePanel.js` | `scripts/ui/upgrade_panel.gd` (`class_name UpgradePanel`) | ۴ کارت ارتقا، علامت ⚠️ روی گلوگاه، کارت غیرفعال وقتی پول کافی نیست |
+| `ui/OfflineCard.js` | `scripts/ui/offline_card.gd` (`class_name OfflineCard`) | overlay تیره + کارت درآمد آفلاین؛ لمس را از نقشه می‌گیرد |
+| `ui/ComingSoon.js` | `scripts/ui/coming_soon.gd` (`class_name ComingSoon`) | برای تب‌های فروشگاه / کارت‌ها / مینی‌گیم‌ها |
+| `ui/Background.js` | `scripts/ui/background.gd` (`class_name Background`) | آسمان + خورشید + نوار کاشی (مثل RN در صحنهٔ اصلی استفاده نمی‌شود) |
+| `ui/TopGradient.js` | `scripts/ui/top_gradient.gd` (`class_name TopGradient`) | گرادیان مشکی→شفاف بالای صفحه (همان ۱۷ مقدار alpha) |
+| `ui/Icons.js` | `scripts/ui/icons.gd` (`class_name Icons`) | **فعلاً ایموجی** (جدول زیر) |
+| `App.js` | `scripts/main.gd` | لایه‌ها: نقشه → گرادیان → HUD → پنل ارتقا / به‌زودی → نوار پایین → کارت آفلاین |
+| — (جدید) | `scripts/ui/ui_kit.gd` (`class_name UiKit`) | ابزارهای مشترک: Label فارسی، StyleBox، تناسب متن با عرض، Safe Area و تبدیل dp |
+
+`app_fonts.gd` هم یک تغییر کوچک گرفت (فونت اختیاری ایموجی به‌عنوان fallback).
+
+### آیکن‌ها = ایموجی (موقت)
+همهٔ آیکن‌ها فقط در `icons.gd` تعریف شده‌اند. وقتی تکسچرهای واقعی را اضافه کردید، فقط همین فایل (تابع `Icons.place`) عوض می‌شود و بقیهٔ UI دست نمی‌خورد.
+
+| کلید | ایموجی | کلید | ایموجی |
+|---|---|---|---|
+| `money` | 💵 | `diamond` | 💎 |
+| `crown` | 👑 | `clipboard` | 📋 |
+| `gear` | ⚙️ | `buildings` | 🏙️ |
+| `star` | ⭐ | `plus` | ➕ |
+| تب `shop` | 🛒 | تب `cards` | 🃏 |
+| تب `home` | 🏠 | تب `upgrade` | ⬆️ |
+| تب `minigames` | 🕹️ | سکه / هشدار | 🪙 / ⚠️ |
+
+آیکن بخش‌های نانوایی (🪟 🧾 🔥 🏮) همان ایموجی‌های `Strings.SECTIONS` هستند.
+
+### معادل‌سازی مفاهیم
+| React Native | Godot |
+|---|---|
+| `useWindowDimensions` + `s = min(width/780, 0.7)` | `Hud.configure()`؛ واحد dp ← `عرض صفحه / ۴۰۰` (`UiKit.dp_scale`) چون رزولوشن مرجع ۱۰۸۰ است |
+| `Pressable` + `pressed && translateY` | `BaseButton` + سیگنال‌های `button_down` / `button_up` |
+| `useSafeAreaInsets` | `UiKit.safe_insets()` (با `DisplayServer.get_display_safe_area()`؛ روی دسکتاپ صفر) |
+| `LayoutAnimation.spring` | `Tween` با `TRANS_BACK` روی وزن هر بخش |
+| `adjustsFontSizeToFit` | `UiKit.fit_text()` (برای موجودی و الماس) |
+| `StatusBar hidden` + `NavigationBar` | `DisplayServer.window_set_mode(FULLSCREEN)` در اندروید + Immersive Mode در Export Preset |
+| `useGame()` | سیگنال‌های `Game.changed` و `Game.offline_report_changed` |
+| `useBottomBarHeight()` | `BottomBar.bar_height(inset, dp)` |
+| `react-native-svg` | `_draw()` و `GradientTexture2D` |
+
+### تفاوت‌ها / نکات
+- **صفحهٔ «در حال بارگذاری»** حذف شد؛ ذخیره همزمان توسط `Game` لود می‌شود و فونت‌ها فایل محلی‌اند.
+- دکمه‌های HUD (تنظیمات، ماموریت، پس فصل، شهرها، «+») فقط **سیگنال** دارند (`settings_pressed` و …) و هنوز به چیزی وصل نیستند؛ در RN هم هندلری نداشتند. مقدار الماس / ماموریت / پس فصل همان placeholderهای RN هستند (۳۵۰ / ۴۰٪ / ۲۵٪).
+- با تغییر اندازهٔ پنجره، UI دوباره چیده می‌شود.
+- کارت‌های ارتقا ارتفاعشان خودکار از محتوا حساب می‌شود.
+- اگر ایموجی روی دستگاه شما دیده نشد یا سیاه‌وسفید بود، `NotoColorEmoji.ttf` را در `assets/fonts/` بگذارید.
+
+### چک‌لیست تست بخش ۳
+- [ ] بالای صفحه HUD کارتونی دیده می‌شود: سطح (ستاره + نوار)، موجودی، الماس و زیر موجودی «درآمد در ثانیه» (سبز نعنایی)
+- [ ] موجودی هر ثانیه بالا می‌رود و اعداد فارسی‌اند؛ عدد بزرگ در موجودی کوچک می‌شود تا جا شود
+- [ ] دکمه‌های HUD هنگام لمس پایین می‌روند؛ کشیدن نقشه از روی دکمه‌ها شروع نمی‌شود و از جاهای خالی نقشه را می‌کشد
+- [ ] نوار پایین ۵ بخش دارد؛ لمس یک تب آن را بزرگ می‌کند (انیمیشن) و برچسبش bold می‌شود
+- [ ] تب «ارتقا» ← ۴ کارت بالای نوار؛ با پول کم خاکستری، با پول کافی نارنجی؛ ⚠️ روی گلوگاه؛ لمس کارت سطح را بالا می‌برد و سکه کم می‌شود
+- [ ] تب‌های «فروشگاه / کارت‌ها / مینی‌گیم‌ها» ← کارت «به‌زودی...» بالای نوار
+- [ ] بازی را ببندید و بعد از ۱۰+ ثانیه باز کنید ← کارت «خوش آمدی، شاطر!» با درآمد و مدت غیبت؛ دکمهٔ «باشه» آن را می‌بندد و پشتش نقشه کشیده نمی‌شود
+- [ ] (گوشی با ناچ) HUD زیر ناچ و نوار پایین بالای خط ژست می‌ماند
+- [ ] ایموجی‌ها نمایش داده می‌شوند
 
 ---
 
@@ -43,7 +113,7 @@
 | `world/WorldMap.js` | `scripts/world/world_map.gd` (`class_name WorldMap`) | کنترل تمام‌صفحه + دریافت لمس + نود `Content` |
 | `world/WorldScene.js` | `scripts/world/world_scene.gd` (`class_name WorldScene`) | زمین با `_draw()` + نانوایی + نود `Actors` (جای شاطر و ماشین در بخش ۴) |
 | `world/Bakery.js` | `scripts/world/bakery.gd` (`class_name Bakery`) | لایه‌های `Sprite2D` (front → belt → lavash → cutter) |
-| `App.js` (بخشی) | `scripts/main.gd` | نمایش نقشه زیر overlay موقت بخش ۱ |
+| `App.js` (بخشی) | `scripts/main.gd` | در بخش ۳ به صحنهٔ اصلی کامل تبدیل شد |
 
 ### معادل‌سازی مفاهیم
 | React Native | Godot |
@@ -71,13 +141,12 @@
 ### تفاوت‌ها
 - تصویرها از اینترنت دانلود نمی‌شوند؛ باید داخل پروژه باشند. پارامترهای cache-busting (`?v=3`) حذف شدند.
 - نقشه با کد ساخته می‌شود (نه با فایل `.tscn` مستقل)؛ اگر خواستید بعداً به صحنه تبدیل می‌کنیم.
-- `main.gd` هنوز موقت است: نقشه + دکمه‌های تست بخش ۱. صحنهٔ اصلی در بخش ۳.
 
 ### چک‌لیست تست بخش ۲
 - [ ] زمین کرمی لوزی با نانوایی در مرکز دیده می‌شود و دوربین روی نانوایی است
 - [ ] کشیدن (ماوس یا انگشت) نقشه را جابه‌جا می‌کند و از کناره‌ها بیرون نمی‌رود
 - [ ] چرخ ماوس / pinch دو انگشتی زوم می‌کند و نقطهٔ زیر انگشت/ماوس تقریباً ثابت می‌ماند
-- [ ] کشیدن نقشه وقتی انگشت روی دکمه‌های ارتقا شروع شده نقشه را حرکت نمی‌دهد
+- [ ] کشیدن نقشه وقتی انگشت روی دکمه‌های HUD شروع شده نقشه را حرکت نمی‌دهد
 - [ ] (با تصاویر) لایه‌های front / belt / lavash / cutter دقیقاً روی هم می‌نشینند
 - [ ] (با تصاویر) اگر با زوم کم (۰.۲۵) تصویر لرزش/دنده‌دار شد، در Import تصاویر گزینهٔ `Mipmaps > Generate` را روشن کنید
 
@@ -114,7 +183,7 @@
 
 ### تفاوت‌های طراحی
 - **زمان بر حسب ثانیه** است (نه میلی‌ثانیه). ذخیرهٔ قدیمی RN قابل انتقال مستقیم نیست؛ فرمت JSON همان کلیدها را دارد.
-- **ایموجی آیکن‌ها** (🪟 🧾 🔥 🏮) فعلاً فقط در `Strings.SECTIONS` هستند؛ فونت پیش‌فرض Godot ایموجی را مطمئن نشان نمی‌دهد؛ در بخش ۳ با تکسچر جایگزین می‌شوند.
+- **ایموجی آیکن‌های بخش‌ها** (🪟 🧾 🔥 🏮) در `Strings.SECTIONS` هستند و در بخش ۳ مستقیماً در کارت‌های ارتقا استفاده می‌شوند.
 - **متن فارسی:** برای هر `Label` مقدار `language = "fa"` گذاشته شده؛ موتور متن Godot شکل‌دهی حروف فارسی را انجام می‌دهد.
 - پکیج‌های npm (`expo`, `react-native-svg`, `reanimated`, `gesture-handler`, …) معادل مستقیم لازم ندارند: SVG ← `_draw()`، reanimated ← Tween/`_process`، gesture-handler ← `InputEventScreenTouch/Drag`.
 
@@ -135,17 +204,20 @@ Noonvaei-godot/
 ├── icon.svg
 ├── assets/
 │   ├── README.md            # لیست تصاویر لازم
-│   └── fonts/               # فونت‌ها را اینجا بگذارید
+│   └── fonts/               # فونت‌ها را اینجا بگذارید (+ NotoColorEmoji.ttf اختیاری)
 ├── scenes/
-│   └── main.tscn            # صحنهٔ موقت (نقشه + overlay تست)
+│   └── main.tscn            # صحنهٔ اصلی (اسکریپت main.gd همه‌چیز را می‌سازد)
 └── scripts/
-    ├── main.gd
+    ├── main.gd              # معادل App.js
     ├── config/  balance.gd, strings.gd
     ├── game/    economy.gd, storage.gd, game_state.gd (Autoload: Game)
     ├── scene/   iso.gd, environment_assets.gd
     ├── world/   world_config.gd, world_camera.gd, world_map.gd, world_scene.gd, bakery.gd
-    └── ui/      palette.gd, fa_format.gd, app_fonts.gd
+    └── ui/      palette.gd, fa_format.gd, app_fonts.gd,
+                 ui_kit.gd, icons.gd, cartoon_button.gd, hud_bar.gd, hud.gd,
+                 bottom_bar.gd, upgrade_panel.gd, offline_card.gd, coming_soon.gd,
+                 top_gradient.gd, background.gd
 ```
 
-## بخش بعدی (۳)
-رابط کاربری: `Hud`، `BottomBar`، `UpgradePanel`، `OfflineCard`، `ComingSoon`، `Background`، `TopGradient`، `Icons` و سرهم‌کردن صحنهٔ اصلی معادل `App.js` (شامل مخفی کردن system bars در اندروید و safe area).
+## بخش بعدی (۴)
+شخصیت‌های متحرک: `BakerWalker` (شاطر)، `CarDriver` (ماشین) و `carPhysics`، به‌علاوهٔ خروجی اندروید و مرتب‌سازی نهایی.
