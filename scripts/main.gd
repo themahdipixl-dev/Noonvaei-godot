@@ -1,12 +1,10 @@
 extends Control
-## PART 1 smoke-test screen.
+## PART 2 test screen: the pannable / zoomable isometric world.
 ##
-## The real screen (world map + HUD + bottom bar, i.e. the port of App.js) arrives in Parts 2-3.
-## For now this scene only proves that the ported logic works:
-##   - money grows by itself (idle income)
-##   - 4 upgrade buttons, costs scale, the bottleneck section is marked
-##   - saving / loading / offline report
+## On top of the map there is still the temporary Part 1 debug overlay (money, 4 upgrade buttons,
+## offline report). The real HUD / bottom bar / panels (port of App.js) arrive in Part 3.
 
+var _map: WorldMap
 var _info_label: Label
 var _offline_label: Label
 var _ok_button: Button
@@ -19,41 +17,57 @@ func _ready() -> void:
 	AppFonts.apply_to_theme(t)
 	theme = t
 
-	var bg := ColorRect.new()
-	bg.color = Palette.GRASS
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# --- world (bottom layer) ---
+	_map = WorldMap.new()
+	_map.name = "WorldMap"
+	add_child(_map)
+	_map.set_level(Game.level)
 
+	# --- temporary overlay (top layer). IGNORE so touches reach the map between the buttons ---
 	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 48)
+		margin.add_theme_constant_override("margin_" + side, 32)
 	add_child(margin)
 
 	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 24)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 16)
 	margin.add_child(box)
 
-	_info_label = _make_label(48)
+	_info_label = _make_label(34)
 	box.add_child(_info_label)
 
-	_offline_label = _make_label(38)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(spacer)
+
+	_offline_label = _make_label(34)
 	box.add_child(_offline_label)
 
 	_ok_button = Button.new()
 	_ok_button.text = Strings.OK
-	_ok_button.custom_minimum_size = Vector2(0, 110)
-	_ok_button.add_theme_font_size_override("font_size", 40)
+	_ok_button.custom_minimum_size = Vector2(0, 100)
+	_ok_button.add_theme_font_size_override("font_size", 36)
 	_ok_button.pressed.connect(Game.dismiss_offline)
 	box.add_child(_ok_button)
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	box.add_child(grid)
 
 	for key in Balance.SECTION_KEYS:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 120)
-		b.add_theme_font_size_override("font_size", 36)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 28)
 		b.pressed.connect(Game.upgrade.bind(key))
-		box.add_child(b)
+		grid.add_child(b)
 		_buttons[key] = b
 
 	Game.changed.connect(_refresh)
@@ -67,14 +81,17 @@ func _make_label(font_size: int) -> Label:
 	l.language = "fa"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Palette.BROWN)
+	l.add_theme_color_override("font_color", Palette.INK)
+	l.add_theme_color_override("font_outline_color", Palette.CREAM)
+	l.add_theme_constant_override("outline_size", 10)
 	return l
 
 
 func _refresh() -> void:
-	_info_label.text = "%s\n%s: %s\n%s: %s\n%s: %s" % [
-		Strings.TITLE,
+	_map.set_level(Game.level)
+	_info_label.text = "%s: %s   |   %s: %s   |   %s: %s" % [
 		Strings.MONEY, FaFormat.format_grouped(Game.money),
 		Strings.PER_SEC, FaFormat.format_rate(Game.income),
 		Strings.LEVEL, FaFormat.to_fa(Game.level),
@@ -83,14 +100,13 @@ func _refresh() -> void:
 		var b: Button = _buttons[key]
 		var s: Dictionary = Strings.SECTIONS[key]
 		var cost: float = Game.costs[key]
-		var text := "%s | %s %s | %s %s" % [
+		var mark := "  ◀ " + Strings.BOTTLENECK if key == Game.info["bottleneck"] else ""
+		b.text = "%s  %s %s\n%s %s%s" % [
 			s["name"],
 			Strings.SECTION_LEVEL, FaFormat.to_fa(Game.levels[key]),
 			Strings.COST, FaFormat.format_grouped(cost),
+			mark,
 		]
-		if key == Game.info["bottleneck"]:
-			text += " | " + Strings.BOTTLENECK
-		b.text = text
 		b.disabled = Game.money < cost
 
 
