@@ -1,0 +1,13 @@
+# Godot 4+
+.godot/
+*.translation
+
+# Android / export output
+/android/
+*.apk
+*.aab
+*.idsig
+
+# OS / editor
+.DS_Store
+Thumbs.db
