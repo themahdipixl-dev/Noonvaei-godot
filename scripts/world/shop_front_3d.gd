@@ -6,9 +6,15 @@ extends Node
 ## یک‌بار رندر می‌شود و نتیجه به صورت تکسچر به Bakery داده می‌شود (جای bakery_front.webp).
 ## دوربین / اندازه دقیقاً همان قبلی است؛ پس جایگاه مغازه روی نقشه، نقطه‌های توقف شاطر و ... بدون تغییر می‌ماند.
 ##
-## چرا یک‌بار رندر؟ مغازه ثابت است و حدود ۱۰ هزار مش دارد؛ رندر زنده‌ی همه‌ی این‌ها در هر فریم روی گوشی
+## چرا یک‌بار رندر؟ مغازه ثابت است و هزاران جزئیات ریز دارد؛ رندر زنده‌ی همه‌ی این‌ها در هر فریم روی گوشی
 ## سنگین است. نتیجه در user:// کش می‌شود؛ اجرای بعدی خیلی سریع است.
 ## اگر کد محیط را عوض کردی، BAKE_VERSION را یکی بالا ببر تا کش قدیمی کنار برود.
+##
+## تراشه‌های موزاییک کف و دایره‌های روی نان (هزاران تکه‌ی ریز) با MultiMesh در چند نود جمع می‌شوند
+## (batch_chip / batch_disc)؛ ظاهر همان است ولی ساخت و رندر روی گوشی بسیار سریع‌تر و کم‌حافظه‌تر است.
+##
+## اگر رندر روی دستگاه ناموفق باشد (تصویر خالی)، یک‌بار با کیفیت کمتر (بدون MSAA و نصف اندازه) دوباره تلاش می‌کند
+## و در هر حال پیام وضعیت/خطا را با سیگنال status می‌دهد (Bakery آن را روی نقشه نشان می‌دهد).
 ##
 ## نکته: SSAO فقط در Forward+ کار می‌کند؛ در gl_compatibility (رندرر فعلی پروژه) نادیده گرفته می‌شود.
 
@@ -35,6 +41,9 @@ const TILE := Color("eef1f3")
 ## وقتی رندر تمام شد، تکسچر نهایی را می‌دهد (همان لحظه هم نود خودش را پاک می‌کند).
 signal baked(texture: Texture2D)
 
+## پیام وضعیت (در حال ساخت / خطا) برای نمایش روی نقشه تا وقتی مغازه آماده نشده.
+signal status(message: String, is_error: bool)
+
 var world: Node3D
 var off := Vector3.ZERO
 var fancy := false
@@ -42,6 +51,10 @@ var rbox_cache: Dictionary = {}
 var rcyl_cache: Dictionary = {}
 
 var _vp: SubViewport
+## MultiMesh دسته‌ها: key -> { "mesh": Mesh, "xf": Array[Transform3D], "col": Array[Color] }
+var _batches: Dictionary = {}
+var _unit_box: BoxMesh
+var _unit_disc: CylinderMesh
 
 
 static func cache_path() -> String:
@@ -64,9 +77,27 @@ func _load_cache() -> Texture2D:
 	if not FileAccess.file_exists(p):
 		return null
 	var img := Image.load_from_file(p)
-	if img == null or img.is_empty():
+	# کش خراب/خالی (مثلاً از یک رندر ناموفق قبلی) نادیده گرفته می‌شود تا دوباره ساخته شود
+	if not _image_ok(img):
 		return null
 	return _to_texture(img)
+
+
+## رندر خالی/کاملاً شفاف را تشخیص می‌دهد (روی بعضی گوشی‌ها رندر ناموفق تصویر شفاف می‌دهد).
+## ۲۵۶ نقطه‌ی نمونه روی تصویر؛ حداقل چند نقطه باید دیده شود.
+static func _image_ok(img: Image) -> bool:
+	if img == null or img.is_empty():
+		return false
+	var w := img.get_width()
+	var h := img.get_height()
+	var hits := 0
+	for iy in range(16):
+		for ix in range(16):
+			var px := int((ix + 0.5) * w / 16.0)
+			var py := int((iy + 0.5) * h / 16.0)
+			if img.get_pixel(px, py).a > 0.1:
+				hits += 1
+	return hits >= 3
 
 
 func _to_texture(img: Image) -> Texture2D:
@@ -76,7 +107,8 @@ func _to_texture(img: Image) -> Texture2D:
 
 
 func _bake() -> void:
-	# یک فریم صبر می‌کنیم تا بازی نشان داده شود، بعد ساخت سنگین محیط
+	status.emit("در حال ساخت مغازه…", false)
+	# یک فریم صبر می‌کنیم تا بازی (و پیام وضعیت) نشان داده شود، بعد ساخت محیط
 	await get_tree().process_frame
 
 	# اتلس سایه (۴۰۹۶ به جای ۸۱۹۲ تا روی گوشی حافظه کم نیاید)
@@ -88,30 +120,49 @@ func _bake() -> void:
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
 	_vp.msaa_3d = Viewport.MSAA_4X
-	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	# تا ساخت محیط تمام نشده رندر نکن؛ _render_once آن را روشن می‌کند
+	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 
 	world = Node3D.new()
 	_vp.add_child(world)
 	_build_front()
+	_flush_batches()
 
-	# رندر در انتهای همین فریم انجام می‌شود؛ دو فریم صبر برای اطمینان
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-
-	var img := _vp.get_texture().get_image()
-	if img == null or img.is_empty():
-		push_warning("ShopFront3D: render failed, keeping placeholder")
+	var img: Image = await _render_once()
+	if not _image_ok(img):
+		# رندر خالی: یک‌بار با کیفیت کمتر (بدون MSAA، نصف اندازه) دوباره تلاش کن
+		push_warning("ShopFront3D: first render was empty, retrying without MSAA at half size")
+		status.emit("رندر اول جواب نداد؛ تلاش دوباره با کیفیت کمتر…", false)
+		_vp.msaa_3d = Viewport.MSAA_DISABLED
+		_vp.size = Vector2i(int(IMAGE_SIZE * 0.5), int(IMAGE_SIZE * 0.5))
+		img = await _render_once()
+	if not _image_ok(img):
+		push_warning("ShopFront3D: render failed (empty image), no shop texture")
+		status.emit("ساخت مغازه ناموفق بود (رندر خالی). لاگ Godot را ببین.", true)
 		queue_free()
 		return
 	img.convert(Image.FORMAT_RGBA8)
 
+	# اگر رندر دوم (کیفیت کمتر) جواب داد همان کش می‌شود تا هر بار دوباره تلاش ناموفق نشود
 	var err := img.save_png(cache_path())
 	if err != OK:
 		push_warning("ShopFront3D: could not save cache (err %d)" % err)
 
 	baked.emit(_to_texture(img))
 	queue_free()
+
+
+## یک رندر از SubViewport می‌گیرد (UPDATE_ONCE) و تصویر را برمی‌گرداند.
+## رندر در انتهای فریم انجام می‌شود؛ دو فریم صبر برای اطمینان.
+func _render_once() -> Image:
+	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var tex := _vp.get_texture()
+	if tex == null:
+		return null
+	return tex.get_image()
 
 
 # ============================================================
@@ -300,6 +351,81 @@ func glass(pos: Vector3, size: Vector3) -> MeshInstance3D:
 
 
 # ============================================================
+# دسته‌بندی تکه‌های ریز با MultiMesh
+# ============================================================
+# هزاران تراشه‌ی موزاییک و دایره‌ی نان اگر هر کدام یک نود جدا باشند، ساخت و رندرشان روی گوشی خیلی کند است.
+# این‌ها در batch_chip / batch_disc فقط ثبت می‌شوند و _flush_batches همه را در چند MultiMeshInstance3D می‌سازد.
+
+## مش واحد (اندازه‌ی ۱) برای تراشه‌ها؛ اندازه‌ی واقعی با scale هر نمونه می‌آید.
+func _get_unit_box() -> BoxMesh:
+	if _unit_box == null:
+		_unit_box = BoxMesh.new()
+		_unit_box.size = Vector3.ONE
+	return _unit_box
+
+
+## مش واحد (شعاع ۱، ارتفاع ۱) برای دایره‌های ریز روی نان.
+func _get_unit_disc() -> CylinderMesh:
+	if _unit_disc == null:
+		_unit_disc = CylinderMesh.new()
+		_unit_disc.top_radius = 1.0
+		_unit_disc.bottom_radius = 1.0
+		_unit_disc.height = 1.0
+		_unit_disc.radial_segments = 12
+		_unit_disc.rings = 1
+	return _unit_disc
+
+
+func _batch_add(key: String, mesh: Mesh, xf: Transform3D, col: Color) -> void:
+	if not _batches.has(key):
+		_batches[key] = {"mesh": mesh, "xf": [], "col": []}
+	var b: Dictionary = _batches[key]
+	(b["xf"] as Array).append(xf)
+	(b["col"] as Array).append(col)
+
+
+## تراشه‌ی جعبه‌ای ریز (مثل box ولی داخل یک MultiMesh). rot_y بر حسب درجه.
+func batch_chip(pos: Vector3, size: Vector3, rot_y: float, col: Color) -> void:
+	var bs := Basis(Vector3.UP, deg_to_rad(rot_y)) * Basis.from_scale(size)
+	_batch_add("chip", _get_unit_box(), Transform3D(bs, pos + off), col)
+
+
+## قرص استوانه‌ای ریز (مثل cyl با r_top = r_bot) داخل یک MultiMesh.
+func batch_disc(pos: Vector3, r: float, h: float, col: Color) -> void:
+	var bs := Basis.from_scale(Vector3(r, h, r))
+	_batch_add("disc", _get_unit_disc(), Transform3D(bs, pos + off), col)
+
+
+## همه‌ی دسته‌ها را به MultiMeshInstance3D تبدیل می‌کند (بعد از _build_front صدا زده می‌شود).
+func _flush_batches() -> void:
+	for key in _batches.keys():
+		var b: Dictionary = _batches[key]
+		var xfs: Array = b["xf"]
+		var cols: Array = b["col"]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true  # باید قبل از instance_count تنظیم شود
+		mm.mesh = b["mesh"]
+		mm.instance_count = xfs.size()
+		for i in range(xfs.size()):
+			mm.set_instance_transform(i, xfs[i])
+			# رنگ نمونه خطی است؛ ماده‌ی معمولی رنگ آلبیدو را sRGB می‌گیرد، پس این‌جا خودمان تبدیل می‌کنیم
+			mm.set_instance_color(i, (cols[i] as Color).srgb_to_linear())
+		# جعبه‌ی فرضی بزرگ: دسته هرگز اشتباهی cull نمی‌شود
+		mm.custom_aabb = AABB(Vector3(-10.0, -2.0, -10.0), Vector3(20.0, 10.0, 20.0))
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color.WHITE
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 1.0
+		mat.metallic_specular = 0.0
+		mi.material_override = mat
+		world.add_child(mi)
+	_batches.clear()
+
+
+# ============================================================
 # نور و دوربین (ارتوگرافیک، زاویه‌ی ایزومتریک (30,30,30))
 # ============================================================
 
@@ -396,8 +522,11 @@ func terrazzo_tile(cx: float, cz: float, rng: RandomNumberGenerator) -> void:
 		var px: float = cx + rng.randf_range(-0.46, 0.46)
 		var pz: float = cz + rng.randf_range(-0.46, 0.46)
 		var s: float = rng.randf_range(0.02, 0.05)
-		var m := box(Vector3(px, 0.022, pz), Vector3(s, 0.006, s * rng.randf_range(0.6, 1.4)), chips[rng.randi() % chips.size()])
-		m.rotation_degrees.y = rng.randf_range(0, 180)
+		# ترتیب فراخوانی rng مثل قبل است (همان چیدمان تراشه‌ها)
+		var depth: float = s * rng.randf_range(0.6, 1.4)
+		var chip_col: Color = chips[rng.randi() % chips.size()]
+		var deg: float = rng.randf_range(0, 180)
+		batch_chip(Vector3(px, 0.022, pz), Vector3(s, 0.006, depth), deg, chip_col)
 
 
 # توری شطرنجی (خطوط در هر دو جهت) روی سطح میز
@@ -459,7 +588,7 @@ func bread_sheet(cx: float, cy: float, cz: float, sx: float, sz: float, thick: f
 				col = base
 			var px: float = cx + lx * ca + lz * sa
 			var pz: float = cz - lx * sa + lz * ca
-			cyl(Vector3(px, cy + thick / 2.0 + 0.003, pz), r, r, 0.006, col)
+			batch_disc(Vector3(px, cy + thick / 2.0 + 0.003, pz), r, 0.006, col)
 
 
 # دسته‌ی نان: ورق رویی دایره‌ی کامل، ورق‌های زیرین طبق lower (0 بدون دایره، 1 فقط حاشیه)

@@ -7,8 +7,8 @@ extends Node2D
 ##
 ## Layer order: front, belt, lavash, cutter.
 ## The "front" layer is the 3D shop (ShopFront3D renders it once into a texture, same canvas as
-## bakery_front.webp). Until it is ready - or if ShopFront3D.ENABLED is false and there is no
-## bakery_front.webp - a placeholder box is drawn instead.
+## bakery_front.webp). Until it is ready only the empty lot is drawn, with a status line on it
+## ("building the shop..." or the error if the render failed). There is no placeholder box anymore.
 
 const REF := 2048.0
 
@@ -40,6 +40,10 @@ var _belt: Sprite2D
 var _lavash: Sprite2D
 var _cutter: Sprite2D
 
+## Status line shown on the empty lot until the 3D shop texture arrives (from ShopFront3D.status).
+var _status := ""
+var _status_error := false
+
 
 ## gx, gy = top-left grid cell of the lot.
 func setup(projector: Iso, tile_w: float, gx: float, gy: float) -> void:
@@ -68,8 +72,15 @@ func _start_3d_front() -> void:
 	var shop := ShopFront3D.new()
 	shop.name = "ShopFront3D"
 	shop.baked.connect(_on_front_baked)
+	shop.status.connect(_on_front_status)
 	add_child(shop)
 	shop.start()
+
+
+func _on_front_status(message: String, is_error: bool) -> void:
+	_status = message
+	_status_error = is_error
+	queue_redraw()
 
 
 func _on_front_baked(tex: Texture2D) -> void:
@@ -125,8 +136,10 @@ func _set_layer(s: Sprite2D, path: String, rect: Rect2) -> void:
 		s.scale = rect.size / tex.get_size()
 
 
-# ---------------------------------------------------------------- placeholder
+# ---------------------------------------------------------------- empty lot + status
 
+## Shown only while there is no front texture: the empty lot and one status line
+## (the 3D shop is being built / the error if building failed). No placeholder box.
 func _draw() -> void:
 	if _projector == null or (_front != null and _front.texture != null):
 		return
@@ -137,31 +150,10 @@ func _draw() -> void:
 		Vector2(_gx + lot, _gy + lot), Vector2(_gx, _gy + lot),
 	])
 	draw_colored_polygon(footprint, Iso.shade(WorldConfig.GROUND_COLOR, 0.93))
-	_draw_box(_gx + 1.0, _gy + 1.0, lot - 2.0, lot - 2.0, 90.0, Palette.WHEAT)
-	var label_pos := _projector.project(_gx + lot / 2.0, _gy + lot / 2.0, 90.0 + 40.0)
+	var text: String = _status if _status != "" else String(Strings.TITLE)
+	var text_color := Color("c0392b") if _status_error else Palette.INK
+	var label_pos := _projector.project(_gx + lot / 2.0, _gy + lot / 2.0, 40.0)
 	draw_string(
-		ThemeDB.fallback_font, label_pos - Vector2(150, 0), Strings.TITLE,
-		HORIZONTAL_ALIGNMENT_CENTER, 300.0, 28, Palette.INK
+		ThemeDB.fallback_font, label_pos - Vector2(450, 0), text,
+		HORIZONTAL_ALIGNMENT_CENTER, 900.0, 40, text_color
 	)
-
-
-## Draws an iso box: grid rect (x, y, w, d) and height h (px).
-func _draw_box(x: float, y: float, w: float, d: float, h: float, base: Color) -> void:
-	var col := Iso.box_colors(base)
-	var p := _projector
-	# visible side faces are the ones at y + d (left) and x + w (right)
-	var left_face := PackedVector2Array([
-		p.project(x, y + d, 0.0), p.project(x + w, y + d, 0.0),
-		p.project(x + w, y + d, h), p.project(x, y + d, h),
-	])
-	var right_face := PackedVector2Array([
-		p.project(x + w, y, 0.0), p.project(x + w, y + d, 0.0),
-		p.project(x + w, y + d, h), p.project(x + w, y, h),
-	])
-	var top_face := PackedVector2Array([
-		p.project(x, y, h), p.project(x + w, y, h),
-		p.project(x + w, y + d, h), p.project(x, y + d, h),
-	])
-	draw_colored_polygon(left_face, col["left"])
-	draw_colored_polygon(right_face, col["right"])
-	draw_colored_polygon(top_face, col["top"])
