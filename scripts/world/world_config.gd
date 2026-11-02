@@ -160,9 +160,10 @@ static func cars() -> Array[Dictionary]:
 	var car: Dictionary = DEFAULT_CAR.duplicate(true)
 	car["id"] = "peugeot_pars"
 	# 3D model options (see scripts/world/car_model_3d.gd). The 4 wheels of peugeot_pars.glb are separate nodes
-	# named Part 0..3: they roll with the distance driven and the front pair steers in corners.
+	# named part_0..part_3 (each has a child mesh convert_part_N): they roll with the distance driven and the
+	# front pair steers in corners. The other nodes (part_4 .. part_11 ...) are the body and are not touched.
 	car["model"] = {
-		"wheel_names": ["Part 0", "Part 1", "Part 2", "Part 3"],
+		"wheel_names": ["part_0", "part_1", "part_2", "part_3"],
 	}
 	out.append(car)
 	return out
