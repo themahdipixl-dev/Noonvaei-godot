@@ -12,10 +12,16 @@ extends Node2D
 ##   Rim: rotate + scaleX on a View             ->  Node2D (rotation + scale.x) holding a spinning Sprite2D
 ##   Svg ground shadow                          ->  polygons drawn by `_draw_body`
 ##
-## If the car images are not in the project yet, a simple iso box is drawn instead (placeholder).
+## What is shown as the car body (first match wins):
+##   1. a 3D model file  <id>.glb  in the project           -> CarModel3D (real model)
+##   2. all 4 direction sprites (+ optional rims / turn sheet) -> sprites (original RN look)
+##   3. nothing of the above                                 -> CarModel3D placeholder car (simple 3D boxes)
+## So dropping `peugeot_pars.glb` into the project replaces the placeholder (see scripts/world/car_model_3d.gd).
 
 ## horizontal screen sign of each sprite's forward direction (JS: f[0] >= 0 ? 1 : -1) for sw, se, ne, nw
 const SPIN_SIGN: Array[float] = [-1.0, 1.0, 1.0, -1.0]
+## how far ahead (tiles) the 3D model looks to find its heading
+const MODEL_LOOKAHEAD := 0.2
 
 var _car: Dictionary = {}
 var _projector: Iso
@@ -43,6 +49,8 @@ var _turn_offset := 0
 ## number of heading frames between two main directions (turn sheet) - 1 when there is no turn sheet
 var _per := 1
 var _has_art := false
+## 3D car (real .glb model or the placeholder); null when the sprites are used
+var _model: CarModel3D
 var _shadow_rings: Array = []  # [parity 0 rings, parity 1 rings]; each ring is a PackedVector2Array
 
 
@@ -84,6 +92,8 @@ func _build_sprites() -> void:
 	var rim_k := float(_car.get("rim_k", 0.566))
 	var rim_rot: Dictionary = _car.get("rim_rot", {})
 
+	var has_glb := CarModel3D.find_model(id) != ""
+
 	var tex_list: Array[Texture2D] = []
 	var all_ok := true
 	for d in CarPhysics.DIRS:
@@ -91,9 +101,12 @@ func _build_sprites() -> void:
 		tex_list.append(t)
 		if t == null:
 			all_ok = false
-	_has_art = all_ok
-	if not _has_art:
-		return  # placeholder box is drawn by _draw_body
+
+	# a 3D model file wins; with no sprites either, a simple 3D placeholder car is shown
+	if has_glb or not all_ok:
+		_build_model()
+		return
+	_has_art = true
 
 	var rim_tex := EnvironmentAssets.get_texture(EnvironmentAssets.vehicle_rim_path(id))
 
@@ -162,6 +175,15 @@ func _build_sprites() -> void:
 		_body.add_child(_turn)
 
 
+## 3D car: the real <id>.glb when it exists in the project, otherwise a simple placeholder car.
+func _build_model() -> void:
+	var len_tiles := float(_car["shadow"]["length"])
+	_model = CarModel3D.new()
+	_model.name = "Model3D"
+	_body.add_child(_model)
+	_model.setup(String(_car["id"]), _projector.tile_w, len_tiles, _car.get("model", {}))
+
+
 ## Ground shadow rings (3 soft ellipses) around the car, in `_body` local px.
 func _make_shadow(along_x: bool) -> Array:
 	var cfg: Dictionary = _car["shadow"]
@@ -221,6 +243,12 @@ func _sync() -> void:
 				_turn.frame = posmod(_frame + _turn_offset + _turn_frames, _turn_frames)
 		for sp in _spinners:
 			sp.rotation_degrees = float(sp.get_meta("sign")) * _ang
+
+	if _model != null:
+		# heading = direction of the route a little ahead of the car
+		var q := CarPhysics.path_at(_path, _s + MODEL_LOOKAHEAD)
+		_model.update_pose(Vector2(float(q[0]) - float(p[0]), float(q[1]) - float(p[1])), _ang)
+
 	_body.queue_redraw()
 
 
@@ -231,54 +259,9 @@ func _grid_to_local(u: Vector2, z: float) -> Vector2:
 	return Vector2((u.x - u.y) * _projector.tile_w / 2.0, (u.x + u.y) * _projector.tile_h / 2.0 - z)
 
 
-## Shadow on the ground (+ placeholder box when there is no art). `_body` local space, origin = ground point.
+## Shadow on the ground. `_body` local space, origin = ground point. (The car itself is a child node.)
 func _draw_body(c: CanvasItem) -> void:
 	var rings: Array = _shadow_rings[_dir % 2]
 	var alpha := float(_car["shadow"]["opacity"]) * 0.5
 	for ring in rings:
 		c.draw_colored_polygon(ring, Color(0, 0, 0, alpha))
-	if _has_art:
-		return
-
-	# placeholder: a body + cabin box pointing along the route
-	var a := CarPhysics.path_at(_path, _s)
-	var b := CarPhysics.path_at(_path, _s + 0.25)
-	var fwd := Vector2(float(b[0]) - float(a[0]), float(b[1]) - float(a[1]))
-	fwd = fwd.normalized() if fwd.length() > 0.0001 else Vector2.RIGHT
-	var sh: Dictionary = _car["shadow"]
-	var half_len := float(sh["length"]) * 0.42
-	var half_w := float(sh["width"]) * 0.42
-	_draw_prism(c, fwd, half_len, half_w, 0.0, 14.0, Palette.TEAL, 0.0)
-	_draw_prism(c, fwd, half_len * 0.5, half_w * 0.9, 14.0, 26.0, Palette.CREAM, -half_len * 0.1)
-
-
-## Iso box on the ground plane: 4 side faces (back to front), then the top.
-func _draw_prism(c: CanvasItem, fwd: Vector2, half_len: float, half_w: float,
-		z0: float, z1: float, color: Color, shift: float) -> void:
-	var right := Vector2(-fwd.y, fwd.x)
-	var ctr := fwd * shift
-	var corners: Array[Vector2] = [
-		ctr + fwd * half_len + right * half_w,
-		ctr + fwd * half_len - right * half_w,
-		ctr - fwd * half_len - right * half_w,
-		ctr - fwd * half_len + right * half_w,
-	]
-	var light := Vector2(-1.0, 1.0).normalized()
-	var faces: Array = []
-	for i in 4:
-		var pa := corners[i]
-		var pb := corners[(i + 1) % 4]
-		var mid := (pa + pb) / 2.0
-		var normal := (mid - ctr).normalized()
-		faces.append({
-			"depth": mid.x + mid.y,
-			"quad": PackedVector2Array([
-				_grid_to_local(pa, z0), _grid_to_local(pb, z0), _grid_to_local(pb, z1), _grid_to_local(pa, z1)]),
-			"color": Iso.shade(color, 0.8 + 0.2 * normal.dot(light)),
-		})
-	faces.sort_custom(func(f1: Dictionary, f2: Dictionary) -> bool: return float(f1["depth"]) < float(f2["depth"]))
-	for f in faces:
-		c.draw_colored_polygon(f["quad"], f["color"])
-	c.draw_colored_polygon(PackedVector2Array([
-		_grid_to_local(corners[0], z1), _grid_to_local(corners[1], z1),
-		_grid_to_local(corners[2], z1), _grid_to_local(corners[3], z1)]), Iso.shade(color, 1.12))
