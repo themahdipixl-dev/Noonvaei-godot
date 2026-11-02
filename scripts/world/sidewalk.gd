@@ -4,6 +4,7 @@ extends Node2D
 ## همه‌ی لبه‌ها و گوشه‌ها گرد و نرم‌اند (مثل بقیه‌ی محیط بازی):
 ##   - گوشه‌های دال گردند و لبه‌ی بالایی دال هم گرد است (bullnose، نه لبه‌ی تیز)
 ##   - آجرها و کاشی‌های زرد و شیارهاشان گوشه‌گردند
+##   - بلوک‌های رنگیِ جدول گوشه‌گردند
 ##   - جوب با دو سر گرد
 ##
 ## اندازه‌ها بر حسب «واحد» هستند. یک واحد = عرض یک کاشی زرد (UNIT خانه‌ی گرید).
@@ -12,9 +13,10 @@ extends Node2D
 ## خطوط برجسته‌ی کاشی زرد موازی طول نوار هستند.
 ##
 ## از مغازه به سمت خیابان (gy بزرگ‌تر):
-##   [آجرفرش] -> [جدول بتنی، تکه‌تکه با درز] -> [جوب: کانال کم‌عمق با آب] -> خیابان
-## جدول لبه‌ی بیرونی خود دال است (رویه‌ی بتنی + دیواره‌ی رو به خیابان)؛ جوب درست جلوی آن و پایین‌تر از زمین است
-## و دیواره‌ی جدول تا ته جوب ادامه پیدا می‌کند. طول جوب = طول پیاده‌رو.
+##   [آجرفرش] -> [جدول رنگ‌شده، بلوک‌بلوک با درز] -> [جوب: کانال کم‌عمق با آب] -> خیابان
+## جدول مثل جدول‌های رنگ‌شده‌ی خیابان‌های ایران بلوک‌بلوک سبز تیره و سفید است (هر رنگ چند بلوک پشت‌سرهم)؛
+## هم رویه‌ی جدول و هم دیواره‌ی رو به خیابانش (تا ته جوب) رنگ شده است.
+## جدول لبه‌ی بیرونی خود دال است؛ جوب درست جلوی آن و پایین‌تر از زمین است. طول جوب = طول پیاده‌رو.
 ##
 ## جای پیاده‌رو: جلوی ورودی مغازه (لبه‌ی gy بزرگ‌تر)، به‌اندازه‌ی عرض مغازه + SIDE_MARGIN از هر طرف.
 ## ترتیب کشیدن: بعد از Bakery (روی آن)، تا لبه‌ی بیرونی کف مغازه دیده نشود.
@@ -34,10 +36,15 @@ const SIDE_MARGIN := 1.0
 
 ## حاشیه‌ی سنگی کنار و پشت آجرفرش (خانه‌ی گرید).
 const RIM := 0.07
-## عرض جدول بتنی سمت خیابان (خانه‌ی گرید).
+## عرض جدول سمت خیابان (خانه‌ی گرید).
 const CURB_W := 0.16
-## طول هر تکه‌ی جدول (خانه‌ی گرید)؛ بین تکه‌ها درز است.
-const CURB_SEG := 0.6
+## طول هر بلوک جدول (خانه‌ی گرید) و تعداد بلوک‌های پشت‌سرهم با یک رنگ.
+const CURB_BLOCK := 0.3
+const BLOCKS_PER_COLOR := 2
+## طول هر تکه‌ی رنگیِ جدول (همان BLOCKS_PER_COLOR بلوک).
+const CURB_SEG := CURB_BLOCK * BLOCKS_PER_COLOR
+## شعاع گوشه‌ی بلوک‌های جدول روی رویه (خانه‌ی گرید).
+const CURB_BLOCK_R := 0.03
 ## شعاع گوشه‌های بیرونی دال (خانه‌ی گرید).
 const CORNER_R := 0.22
 ## ارتفاع دال از زمین (px).
@@ -64,8 +71,15 @@ const BRICK_COLOR := Color("#a9acaf")
 const JOINT_COLOR := Color("#7d8185")
 const YELLOW_COLOR := Color("#e6bf5f")
 const YELLOW_RIB_COLOR := Color("#f6df9a")
+## بتن ساده (حاشیه‌ی دور دال، زیر رنگ جدول).
 const CURB_COLOR := Color("#cfc9bd")
 const CURB_JOINT_COLOR := Color("#a29c8f")
+## رنگ جدول: سبز تیره + سفید (به‌جای قرمز و سفید).
+const CURB_GREEN := Color("#1f5b3b")
+const CURB_WHITE := Color("#d8dbd7")
+## درز بین بلوک‌های رنگی: روی رویه (کف درز) و روی دیواره (خط نازک نیمه‌شفاف).
+const CURB_PAINT_JOINT := Color("#3a3f36")
+const CURB_JOINT_LINE := Color(0.1, 0.12, 0.1, 0.55)
 const GUTTER_WALL_COLOR := Color("#8b867b")
 const GUTTER_FLOOR_COLOR := Color("#6d6a62")
 const WATER_COLOR := Color(0.42, 0.56, 0.57, 0.92)
@@ -128,7 +142,7 @@ func _draw() -> void:
 	# جوب (پایین‌تر از زمین، جلوی جدول)
 	_draw_gutter()
 
-	# دیواره‌ی گرد دال (فقط قسمت‌هایی که رو به دوربین‌اند)
+	# دیواره‌ی گرد دال (فقط قسمت‌هایی که رو به دوربین‌اند؛ سمت خیابان رنگ جدول)
 	_draw_ring(slab, z - BEVEL_H, slab, 0.0, 0.0)
 
 	# لبه‌ی بالایی گرد (چند پله‌ی کوچک روی یک ربع‌دایره)
@@ -144,8 +158,9 @@ func _draw() -> void:
 		prev_z = cz
 		prev_a = a
 
-	# رویه‌ی سنگی/بتنی + آجرفرش
+	# رویه‌ی سنگی/بتنی + رنگ جدول + آجرفرش
 	draw_colored_polygon(_proj(top, z), Iso.shade(CURB_COLOR, 1.12))
+	_draw_curb_paint_top(top, z)
 	draw_colored_polygon(_proj(paved, z), JOINT_COLOR)
 
 	var rng := RandomNumberGenerator.new()
@@ -169,22 +184,53 @@ func _slab_outline(inset: float) -> PackedVector2Array:
 
 # ---------------------------------------------------------------- جدول
 
-## درز بین تکه‌های جدول بتنی: روی رویه و روی دیواره‌ی رو به خیابان تا ته جوب.
+## رنگ بلوکی که در مختصات gx (گرید) قرار دارد: BLOCKS_PER_COLOR بلوک سبز، بعد همان‌قدر سفید، و همین‌طور ادامه.
+func _curb_color_at(gx: float) -> Color:
+	var k := floori((gx - _px0) / CURB_BLOCK)
+	var g := floori(float(k) / float(BLOCKS_PER_COLOR))
+	return CURB_GREEN if posmod(g, 2) == 0 else CURB_WHITE
+
+
+## رویه‌ی جدول: کف درز تیره، روی آن بلوک‌های گوشه‌گردِ سبز/سفید (برش‌خورده با شکل گردِ دال).
+func _draw_curb_paint_top(top: PackedVector2Array, z: float) -> void:
+	var strip := PackedVector2Array([
+		Vector2(_sx0, _py1), Vector2(_sx1, _py1),
+		Vector2(_sx1, _sy1), Vector2(_sx0, _sy1),
+	])
+	_fill_grid_clipped(strip, top, z, CURB_PAINT_JOINT)
+	var h := JOINT / 2.0
+	var k0 := floori((_sx0 - _px0) / CURB_BLOCK)
+	var k1 := ceili((_sx1 - _px0) / CURB_BLOCK)
+	for k in range(k0, k1):
+		var bx0 := _px0 + float(k) * CURB_BLOCK
+		var bx1 := bx0 + CURB_BLOCK
+		var blk := _rrect(bx0 + h, _py1, bx1 - h, _sy1, CURB_BLOCK_R, 3)
+		_fill_grid_clipped(blk, top, z, Iso.shade(_curb_color_at((bx0 + bx1) / 2.0), 1.08))
+
+
+## چندضلعی گرید را با clip (هر دو در مختصات گرید) برش می‌دهد و در ارتفاع z می‌کشد.
+func _fill_grid_clipped(poly: PackedVector2Array, clip: PackedVector2Array, z: float, color: Color) -> void:
+	var parts: Array = Geometry2D.intersect_polygons(poly, clip)
+	for part in parts:
+		var pts: PackedVector2Array = part
+		if pts.size() >= 3:
+			draw_colored_polygon(_proj(pts, z), color)
+
+
+## درز بین بلوک‌های جدول: خط نازک روی دیواره‌ی رو به خیابان، از لبه‌ی رویه تا ته جوب (فقط قسمت صاف جلو).
 func _draw_curb_joints(z: float) -> void:
-	var x_min := _sx0 + CORNER_R + 0.05
-	var x_max := _sx1 - CORNER_R - 0.05
-	var k := 1
+	var x_min := _sx0 + CORNER_R + 0.03
+	var x_max := _sx1 - CORNER_R - 0.03
+	var k := ceili((x_min - _px0) / CURB_BLOCK)
 	while true:
-		var x := _px0 + float(k) * CURB_SEG
+		var x := _px0 + float(k) * CURB_BLOCK
 		if x > x_max:
 			break
-		if x >= x_min:
-			_rect(x - 0.005, _py1, x + 0.005, _sy1 - BEVEL_I, z, CURB_JOINT_COLOR)
-			draw_line(
-				_iso.project(x, _sy1, z - BEVEL_H),
-				_iso.project(x, _sy1, -GUTTER_D),
-				CURB_JOINT_COLOR, 1.2, true
-			)
+		draw_polyline(PackedVector2Array([
+			_iso.project(x, _sy1 - BEVEL_I, z),
+			_iso.project(x, _sy1, z - BEVEL_H),
+			_iso.project(x, _sy1, -GUTTER_D),
+		]), CURB_JOINT_LINE, 1.2, true)
 		k += 1
 
 
@@ -192,13 +238,25 @@ func _draw_curb_joints(z: float) -> void:
 
 ## جوب تهران: کانال بتنی باز و کم‌عمق جلوی جدول، با کمی آب. کف به‌اندازه‌ی GUTTER_D پایین‌تر از زمین است؛
 ## لبه‌ی نزدیک به خیابان (که پشت آن پنهان است) قسمتی از کف را می‌پوشاند، پس کف با دهانه‌ی جوب برش می‌خورد.
-## دیواره‌ی دورتر (همان دیواره‌ی جدول) در بالای دهانه دیده می‌شود.
+## دیواره‌ی دورتر (همان دیواره‌ی جدول) در بالای دهانه دیده می‌شود و همان بلوک‌های سبز/سفید است.
 func _draw_gutter() -> void:
 	var opening := _rrect(_sx0, _gut_y0, _sx1, _gut_y1, GUTTER_R)
 	var open_px := _proj(opening, 0.0)
 
 	# دهانه با رنگ دیواره پر می‌شود؛ کف و آب روی آن می‌نشینند.
 	draw_colored_polygon(open_px, GUTTER_WALL_COLOR)
+
+	# دیواره‌ی رنگیِ جدول داخل جوب (ادامه‌ی همان بلوک‌ها، کمی تیره‌تر چون در گودی است)
+	var k0 := floori((_sx0 - _px0) / CURB_BLOCK)
+	var k1 := ceili((_sx1 - _px0) / CURB_BLOCK)
+	for k in range(k0, k1):
+		var bx0 := _px0 + float(k) * CURB_BLOCK
+		var bx1 := bx0 + CURB_BLOCK
+		var quad := PackedVector2Array([
+			_iso.project(bx0, _sy1, 0.0), _iso.project(bx1, _sy1, 0.0),
+			_iso.project(bx1, _sy1, -GUTTER_D), _iso.project(bx0, _sy1, -GUTTER_D),
+		])
+		_draw_clipped(quad, open_px, Iso.shade(_curb_color_at((bx0 + bx1) / 2.0), 0.74))
 
 	var floor_plan := _rrect(_sx0 + 0.04, _gut_y0, _sx1 - 0.04, _gut_y1 - 0.03, GUTTER_R * 0.8)
 	_draw_clipped(_proj(floor_plan, -GUTTER_D), open_px, GUTTER_FLOOR_COLOR)
@@ -280,6 +338,8 @@ func _rect(x0: float, y0: float, x1: float, y1: float, z: float, color: Color) -
 ## نوار بین دو خط هم‌تعداد: a در ارتفاع za و b در ارتفاع zb. برای هر ضلعِ رو به دوربین یک چهارضلعی؛
 ## رنگ نرم بین وجه چپِ روشن و وجه راستِ تیره. w (۰..۱) = چقدر رو به بالا است (۰ = دیواره‌ی عمودی، ۱ = رویه).
 ## دیواره‌ی دال = حالتی که a و b یکی‌اند و zb = 0.
+## قسمت سمت خیابان (ضلع جلو و دو گوشه‌ی جلو) به‌جای بتن با رنگ بلوک‌های جدول کشیده می‌شود؛
+## ضلع صاف جلو به تکه‌های CURB_BLOCK شکسته می‌شود تا هر بلوک رنگ خودش را بگیرد.
 func _draw_ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: float, w: float) -> void:
 	var c := Vector2((_sx0 + _sx1) / 2.0, (_sy0 + _sy1) / 2.0)
 	var n := a.size()
@@ -295,11 +355,37 @@ func _draw_ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: flo
 			continue  # پشت دال، دیده نمی‌شود
 		var t := clampf((nrm.y - nrm.x) * 0.5 + 0.5, 0.0, 1.0)
 		var base := lerpf(0.68, 0.9, t)
-		var color := Iso.shade(CURB_COLOR, lerpf(base, 1.12, w))
-		draw_colored_polygon(PackedVector2Array([
-			_iso.project(a[i].x, a[i].y, za), _iso.project(a[j].x, a[j].y, za),
-			_iso.project(b[j].x, b[j].y, zb), _iso.project(b[i].x, b[i].y, zb),
-		]), color)
+		var shade_f := lerpf(base, 1.12, w)
+		var mid := (a[i] + a[j]) / 2.0
+		if mid.y <= _sy1 - CORNER_R + 0.0001:
+			# جدای از سمت خیابان: بتن ساده
+			_ring_piece(a[i], a[j], za, b[i], b[j], zb, Iso.shade(CURB_COLOR, shade_f))
+		elif absf(d.y) < 0.0001 and absf(d.x) > CURB_BLOCK:
+			# ضلع صاف جلو: تکه‌تکه با رنگ هر بلوک
+			var x_lo := minf(a[i].x, a[j].x)
+			var x_hi := maxf(a[i].x, a[j].x)
+			var e := x_lo
+			while e < x_hi - 0.00001:
+				var nb := minf(_px0 + (floorf((e - _px0) / CURB_BLOCK + 0.00001) + 1.0) * CURB_BLOCK, x_hi)
+				var t0 := (e - a[i].x) / d.x
+				var t1 := (nb - a[i].x) / d.x
+				_ring_piece(
+					a[i].lerp(a[j], t0), a[i].lerp(a[j], t1), za,
+					b[i].lerp(b[j], t0), b[i].lerp(b[j], t1), zb,
+					Iso.shade(_curb_color_at((e + nb) / 2.0), shade_f)
+				)
+				e = nb
+		else:
+			# کمان‌های گوشه‌ی جلو: رنگ بلوکِ همان نقطه
+			_ring_piece(a[i], a[j], za, b[i], b[j], zb, Iso.shade(_curb_color_at(mid.x), shade_f))
+
+
+## یک چهارضلعی از نوار _draw_ring: a0-a1 در ارتفاع za، b0-b1 در ارتفاع zb.
+func _ring_piece(a0: Vector2, a1: Vector2, za: float, b0: Vector2, b1: Vector2, zb: float, color: Color) -> void:
+	draw_colored_polygon(PackedVector2Array([
+		_iso.project(a0.x, a0.y, za), _iso.project(a1.x, a1.y, za),
+		_iso.project(b1.x, b1.y, zb), _iso.project(b0.x, b0.y, zb),
+	]), color)
 
 
 ## مستطیل گرد در فضای گرید (نقطه‌ها پشت‌سرهم دور مستطیل). segs = تعداد تکه‌ی هر کمان.
