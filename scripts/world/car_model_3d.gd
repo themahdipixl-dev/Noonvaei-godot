@@ -22,8 +22,8 @@ extends Node2D
 ##       "yaw_offset": 0.0,       # degrees; use 90 / 180 / -90 if the car drives sideways or backwards
 ##       "scale": 1.0,            # size multiplier on screen
 ##       "spin_wheels": false,    # spin nodes named *wheel* in the .glb (only if their pivots are at the wheel centres)
-##       "sun": 0.8,              # main light strength (lower = less washed-out white, higher = brighter)
-##       "ambient": 0.35,         # fill light strength (lower = darker shadows / more contrast)
+##       "sun": 1.1,              # main light strength
+##       "ambient": 0.5,          # fill light strength
 ##   }
 ## The car length on screen is taken from car["shadow"]["length"] (tiles).
 ##
@@ -80,17 +80,16 @@ func setup(car_id: String, tile_w: float, length_tiles: float, cfg: Dictionary =
 	_viewport.size = Vector2i(VIEW_PX, VIEW_PX)
 	_viewport.transparent_bg = true
 	_viewport.own_world_3d = true
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	# 4x MSAA smooths the edges (stair-steps) of the model; the render is small so it is cheap
+	_viewport.msaa_3d = Viewport.MSAA_4X
 	_viewport.gui_disable_input = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 
-	# Soft lighting: the sun + ambient must add up to about 1.1, otherwise white parts (roof, hood)
-	# burn out to pure white and the shape of the car is lost.
 	var env := Environment.new()
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(1, 1, 1)
-	env.ambient_light_energy = float(cfg.get("ambient", 0.35))
+	env.ambient_light_energy = float(cfg.get("ambient", 0.5))
 
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -103,10 +102,9 @@ func setup(car_id: String, tile_w: float, length_tiles: float, cfg: Dictionary =
 	cam.position = Vector3(0.0, sin(pitch) * 30.0, cos(pitch) * 30.0)
 	_viewport.add_child(cam)
 
-	# the light comes at an angle (not straight from above) so that the top is not much brighter than the sides
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = float(cfg.get("sun", 0.8))
-	sun.basis = Basis.looking_at(Vector3(0.6, -0.6, -0.5).normalized(), Vector3.UP)
+	sun.light_energy = float(cfg.get("sun", 1.1))
+	sun.basis = Basis.looking_at(Vector3(0.45, -0.8, -0.35).normalized(), Vector3.UP)
 	_viewport.add_child(sun)
 
 	# ---- the car
@@ -133,6 +131,8 @@ func setup(car_id: String, tile_w: float, length_tiles: float, cfg: Dictionary =
 	_sprite.name = "Render"
 	_sprite.texture = _viewport.get_texture()
 	_sprite.centered = true
+	# smooth scaling (never nearest), whatever the parent nodes use
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	add_child(_sprite)
 
 	# px per 3D unit on screen so that the car is `length_tiles` long on the iso ground
