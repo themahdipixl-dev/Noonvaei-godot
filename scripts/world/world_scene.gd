@@ -50,6 +50,7 @@ func setup(p_content_size: Vector2) -> void:
 	baker.setup(projector, bakery)
 
 	for car in WorldConfig.cars():
+		_snap_route_to_lane(car)
 		var driver := CarDriver.new()
 		driver.name = "Car_%s" % String(car["id"])
 		actors.add_child(driver)
@@ -57,6 +58,20 @@ func setup(p_content_size: Vector2) -> void:
 		cars.append(driver)
 
 	queue_redraw()
+
+
+## Route points that lie on the street are moved to the centre of the right-hand lane (lane 0, next to the curb),
+## so the car drives between the street lines instead of on the dashed middle line.
+## The route runs in the -x direction on the street, and with right-hand traffic that is the lane next to the curb.
+func _snap_route_to_lane(car: Dictionary) -> void:
+	var lane_y := sidewalk.lane_center_y(0)
+	var road_y0 := lane_y - Sidewalk.ROAD_LANE_W / 2.0
+	var road_y1 := road_y0 + float(Sidewalk.ROAD_LANES) * Sidewalk.ROAD_LANE_W
+	var route: Array = car["route"]
+	for i in route.size():
+		var p: Vector2 = route[i]
+		if p.y > road_y0 and p.y < road_y1:
+			route[i] = Vector2(p.x, lane_y)
 
 
 func _draw() -> void:
