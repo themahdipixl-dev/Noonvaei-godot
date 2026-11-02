@@ -1,11 +1,6 @@
 class_name Sidewalk
 extends Node2D
-## پیاده‌رو جلوی مغازه + جدول و جوبِ سبک تهران.
-## همه‌ی لبه‌ها و گوشه‌ها گرد و نرم‌اند (مثل بقیه‌ی محیط بازی):
-##   - گوشه‌های دال گردند و لبه‌ی بالایی دال هم گرد است (bullnose، نه لبه‌ی تیز)
-##   - آجرها و کاشی‌های زرد و شیارهاشان گوشه‌گردند
-##   - بلوک‌های رنگیِ جدول گوشه‌گردند
-##   - جوب با دو سر گرد
+## پیاده‌رو جلوی مغازه + جدولِ سبک تهران (بدون جوب).
 ##
 ## اندازه‌ها بر حسب «واحد» هستند. یک واحد = عرض یک کاشی زرد (UNIT خانه‌ی گرید).
 ## عرض پیاده‌رو (قسمت آجرفرش) = WIDTH_UNITS واحد = 5 تا کاشی زرد کنار هم:
@@ -13,10 +8,12 @@ extends Node2D
 ## خطوط برجسته‌ی کاشی زرد موازی طول نوار هستند.
 ##
 ## از مغازه به سمت خیابان (gy بزرگ‌تر):
-##   [آجرفرش] -> [جدول رنگ‌شده، بلوک‌بلوک با درز] -> [جوب: کانال کم‌عمق با آب] -> خیابان
-## جدول مثل جدول‌های رنگ‌شده‌ی خیابان‌های ایران بلوک‌بلوک سبز تیره و سفید است (هر رنگ چند بلوک پشت‌سرهم)؛
-## هم رویه‌ی جدول و هم دیواره‌ی رو به خیابانش (تا ته جوب) رنگ شده است.
-## جدول لبه‌ی بیرونی خود دال است؛ جوب درست جلوی آن و پایین‌تر از زمین است. طول جوب = طول پیاده‌رو.
+##   [آجرفرش روی دال] -> [جدول رنگ‌شده، بلندتر از آجرفرش] -> خیابان
+## - جدول یک بلوک جداست که CURB_UP پیکسل از سطح آجرفرش بلندتر است (هم‌سطح نیست).
+## - جدول بلوک‌بلوک سبز تیره و سفید است و رنگ‌ها یکی‌درمیان عوض می‌شوند.
+## - بین بلوک‌های جدول هیچ درز یا خط تیره‌ای نیست.
+## - جدول و دال دقیقاً هم‌طول‌اند و دو سرشان یک خط عمودی صاف دارند (بدون بیرون‌زدگی).
+##   فقط گوشه‌های عقبیِ دال و گوشه‌های جلویی جدول گردند.
 ##
 ## جای پیاده‌رو: جلوی ورودی مغازه (لبه‌ی gy بزرگ‌تر)، به‌اندازه‌ی عرض مغازه + SIDE_MARGIN از هر طرف.
 ## ترتیب کشیدن: بعد از Bakery (روی آن)، تا لبه‌ی بیرونی کف مغازه دیده نشود.
@@ -35,21 +32,21 @@ const YELLOW_UNIT_INDEX := 2
 const SIDE_MARGIN := 1.0
 
 ## حاشیه‌ی سنگی کنار و پشت آجرفرش (خانه‌ی گرید).
-const RIM := 0.07
+const RIM := 0.045
 ## عرض جدول سمت خیابان (خانه‌ی گرید).
 const CURB_W := 0.16
-## طول هر بلوک جدول (خانه‌ی گرید) و تعداد بلوک‌های پشت‌سرهم با یک رنگ.
+## اندازه‌ی تقریبی هر بلوک جدول (خانه‌ی گرید). اندازه‌ی واقعی طوری تنظیم می‌شود که
+## تعداد بلوک‌ها فرد و هر دو سر جدول سبز باشد و بلوک نیمه‌کاره نداشته باشیم.
 const CURB_BLOCK := 0.3
-const BLOCKS_PER_COLOR := 2
-## طول هر تکه‌ی رنگیِ جدول (همان BLOCKS_PER_COLOR بلوک).
-const CURB_SEG := CURB_BLOCK * BLOCKS_PER_COLOR
-## شعاع گوشه‌ی بلوک‌های جدول روی رویه (خانه‌ی گرید).
-const CURB_BLOCK_R := 0.03
-## شعاع گوشه‌های بیرونی دال (خانه‌ی گرید).
-const CORNER_R := 0.22
+## شعاع گوشه‌های جلویی جدول (خانه‌ی گرید).
+const CURB_R := 0.07
+## شعاع گوشه‌های عقبیِ دال (خانه‌ی گرید).
+const CORNER_R := 0.12
 ## ارتفاع دال از زمین (px).
 const CURB_H := 6.0
-## گردیِ لبه‌ی بالایی دال: چقدر به داخل (خانه‌ی گرید) و چقدر از ارتفاع (px) را می‌گیرد.
+## ارتفاع جدول بالاتر از سطح آجرفرش (px).
+const CURB_UP := 4.0
+## گردیِ لبه‌ی بالایی: چقدر به داخل (خانه‌ی گرید) و چقدر از ارتفاع (px) را می‌گیرد.
 const BEVEL_I := 0.03
 const BEVEL_H := 2.6
 ## زاویه‌های پله‌های گردی لبه (درجه، آخری 90 است).
@@ -62,28 +59,15 @@ const YELLOW_R := 0.022
 ## تعداد تکه‌ی هر کمان گوشه (بیشتر = گردتر).
 const ARC_SEGS := 8
 
-## جوب: عرض و شعاع دو سر (خانه‌ی گرید) و عمق (px).
-const GUTTER_W := 0.34
-const GUTTER_R := 0.12
-const GUTTER_D := 4.0
-
 const BRICK_COLOR := Color("#a9acaf")
 const JOINT_COLOR := Color("#7d8185")
 const YELLOW_COLOR := Color("#e6bf5f")
 const YELLOW_RIB_COLOR := Color("#f6df9a")
-## بتن ساده (حاشیه‌ی دور دال، زیر رنگ جدول).
+## بتن ساده (حاشیه‌ی دور دال).
 const CURB_COLOR := Color("#cfc9bd")
-const CURB_JOINT_COLOR := Color("#a29c8f")
-## رنگ جدول: سبز تیره + سفید (به‌جای قرمز و سفید).
+## رنگ جدول: سبز تیره + سفید.
 const CURB_GREEN := Color("#1f5b3b")
 const CURB_WHITE := Color("#d8dbd7")
-## درز بین بلوک‌های رنگی: روی رویه (کف درز) و روی دیواره (خط نازک نیمه‌شفاف).
-const CURB_PAINT_JOINT := Color("#3a3f36")
-const CURB_JOINT_LINE := Color(0.1, 0.12, 0.1, 0.55)
-const GUTTER_WALL_COLOR := Color("#8b867b")
-const GUTTER_FLOOR_COLOR := Color("#6d6a62")
-const WATER_COLOR := Color(0.42, 0.56, 0.57, 0.92)
-const WATER_HI_COLOR := Color(0.78, 0.88, 0.88, 0.55)
 const SHADOW_COLOR := Color(0.25, 0.18, 0.08, 0.12)
 
 var _iso: Iso
@@ -92,15 +76,17 @@ var _px0 := 0.0
 var _px1 := 0.0
 var _py0 := 0.0
 var _py1 := 0.0
-## دال کامل = آجرفرش + حاشیه + جدول (گرید)
+## دال (گرید): x از _sx0 تا _sx1، y از _sy0 تا _cy0
 var _sx0 := 0.0
 var _sx1 := 0.0
 var _sy0 := 0.0
+## جدول (گرید): y از _cy0 تا _sy1 ، x همان _sx0.._sx1
+var _cy0 := 0.0
 var _sy1 := 0.0
-## جوب (گرید): درست جلوی جدول
-var _gut_y0 := 0.0
-var _gut_y1 := 0.0
 var _n_len := 0
+## تعداد و اندازه‌ی بلوک‌های جدول
+var _n_blk := 1
+var _blk := CURB_BLOCK
 
 
 ## lot_gx, lot_gy = گوشه‌ی بالا-چپِ زمین مغازه (گرید)، lot_size = ضلع زمین (خانه).
@@ -117,9 +103,14 @@ func setup(projector: Iso, lot_gx: float, lot_gy: float, lot_size: float) -> voi
 	_sx1 = _px1 + RIM
 	_py0 = _sy0 + RIM
 	_py1 = _py0 + float(WIDTH_UNITS) * UNIT
-	_sy1 = _py1 + CURB_W
-	_gut_y0 = _sy1
-	_gut_y1 = _gut_y0 + GUTTER_W
+	_cy0 = _py1
+	_sy1 = _cy0 + CURB_W
+	# بلوک‌های جدول: تعداد فرد => هر دو سر سبز و هم‌شکل
+	var span := _sx1 - _sx0
+	_n_blk = maxi(1, roundi(span / CURB_BLOCK))
+	if _n_blk % 2 == 0:
+		_n_blk += 1
+	_blk = span / float(_n_blk)
 	queue_redraw()
 
 
@@ -132,20 +123,17 @@ func _draw() -> void:
 	if _iso == null:
 		return
 	var z := CURB_H
+	var zc := CURB_H + CURB_UP
 	var slab := _slab_outline(0.0)
 	var top := _slab_outline(BEVEL_I)
-	var paved := _rrect(_px0, _py0, _px1, _py1, maxf(CORNER_R - RIM, 0.02))
+	var pr := maxf(CORNER_R - RIM, 0.02)
+	var paved := _rrect_c(_px0, _py0, _px1, _py1, pr, pr, 0.0, 0.0)
 
 	# سایه‌ی ملایم روی زمین (کمی به سمت جلو/راست)
 	draw_colored_polygon(_proj(_rrect(_sx0 + 0.03, _sy0 + 0.06, _sx1 + 0.05, _sy1 + 0.09, CORNER_R), 0.0), SHADOW_COLOR)
 
-	# جوب (پایین‌تر از زمین، جلوی جدول)
-	_draw_gutter()
-
-	# دیواره‌ی گرد دال (فقط قسمت‌هایی که رو به دوربین‌اند؛ سمت خیابان رنگ جدول)
-	_draw_ring(slab, z - BEVEL_H, slab, 0.0, 0.0)
-
-	# لبه‌ی بالایی گرد (چند پله‌ی کوچک روی یک ربع‌دایره)
+	# ---- دال (بتن + آجرفرش)
+	_ring(slab, z - BEVEL_H, slab, 0.0, 0.0, false)
 	var prev := slab
 	var prev_z := z - BEVEL_H
 	var prev_a := 0.0
@@ -153,14 +141,12 @@ func _draw() -> void:
 		var th := deg_to_rad(a)
 		var cur := _slab_outline(BEVEL_I * (1.0 - cos(th)))
 		var cz := z - BEVEL_H * (1.0 - sin(th))
-		_draw_ring(prev, prev_z, cur, cz, sin(deg_to_rad((prev_a + a) * 0.5)))
+		_ring(prev, prev_z, cur, cz, sin(deg_to_rad((prev_a + a) * 0.5)), false)
 		prev = cur
 		prev_z = cz
 		prev_a = a
 
-	# رویه‌ی سنگی/بتنی + رنگ جدول + آجرفرش
 	draw_colored_polygon(_proj(top, z), Iso.shade(CURB_COLOR, 1.12))
-	_draw_curb_paint_top(top, z)
 	draw_colored_polygon(_proj(paved, z), JOINT_COLOR)
 
 	var rng := RandomNumberGenerator.new()
@@ -174,38 +160,57 @@ func _draw() -> void:
 			else:
 				_draw_weave_cell(gx, gy, z, (i + j) % 2 == 0, rng, paved)
 
-	_draw_curb_joints(z)
+	# ---- جدول (بلوک جدا و بلندتر از آجرفرش؛ روی آجرفرش کشیده می‌شود تا پشتش را بپوشاند)
+	var cslab := _curb_outline(0.0)
+	var ctop := _curb_outline(BEVEL_I)
+	_ring(cslab, zc - BEVEL_H, cslab, 0.0, 0.0, true)
+	var cprev := cslab
+	var cprev_z := zc - BEVEL_H
+	var cprev_a := 0.0
+	for a in BEVEL_ANGLES:
+		var th2 := deg_to_rad(a)
+		var ccur := _curb_outline(BEVEL_I * (1.0 - cos(th2)))
+		var ccz := zc - BEVEL_H * (1.0 - sin(th2))
+		_ring(cprev, cprev_z, ccur, ccz, sin(deg_to_rad((cprev_a + a) * 0.5)), true)
+		cprev = ccur
+		cprev_z = ccz
+		cprev_a = a
+	_draw_curb_top(ctop, zc)
 
 
-## دایره‌وار: خطوط دال (گرید) با «فاصله‌ی inset» از لبه‌ی بیرونی؛ تعداد نقطه‌ها همیشه یکی است.
+## خط دور دال (گرید) با «فاصله‌ی inset» از لبه‌ی بیرونی. گوشه‌های عقب گرد، گوشه‌های جلو (کنار جدول) تیز.
+## لبه‌ی جلویی دال (چسبیده به جدول) inset نمی‌گیرد.
 func _slab_outline(inset: float) -> PackedVector2Array:
-	return _rrect(_sx0 + inset, _sy0 + inset, _sx1 - inset, _sy1 - inset, maxf(CORNER_R - inset, 0.02))
+	var r := maxf(CORNER_R - inset, 0.02)
+	return _rrect_c(_sx0 + inset, _sy0 + inset, _sx1 - inset, _cy0, r, r, 0.0, 0.0)
+
+
+## خط دور جدول (گرید). گوشه‌های جلو گرد، گوشه‌های عقب (چسبیده به دال) تیز.
+## لبه‌ی عقبی جدول inset نمی‌گیرد (از دوربین دیده نمی‌شود).
+func _curb_outline(inset: float) -> PackedVector2Array:
+	var r := maxf(CURB_R - inset, 0.02)
+	return _rrect_c(_sx0 + inset, _cy0, _sx1 - inset, _sy1 - inset, 0.0, 0.0, r, r)
 
 
 # ---------------------------------------------------------------- جدول
 
-## رنگ بلوکی که در مختصات gx (گرید) قرار دارد: BLOCKS_PER_COLOR بلوک سبز، بعد همان‌قدر سفید، و همین‌طور ادامه.
+## رنگ بلوکی که در مختصات gx (گرید) قرار دارد: سبز، سفید، سبز، سفید ... (یکی‌درمیان).
 func _curb_color_at(gx: float) -> Color:
-	var k := floori((gx - _px0) / CURB_BLOCK)
-	var g := floori(float(k) / float(BLOCKS_PER_COLOR))
-	return CURB_GREEN if posmod(g, 2) == 0 else CURB_WHITE
+	var k := clampi(floori((gx - _sx0) / _blk), 0, _n_blk - 1)
+	return CURB_GREEN if k % 2 == 0 else CURB_WHITE
 
 
-## رویه‌ی جدول: کف درز تیره، روی آن بلوک‌های گوشه‌گردِ سبز/سفید (برش‌خورده با شکل گردِ دال).
-func _draw_curb_paint_top(top: PackedVector2Array, z: float) -> void:
-	var strip := PackedVector2Array([
-		Vector2(_sx0, _py1), Vector2(_sx1, _py1),
-		Vector2(_sx1, _sy1), Vector2(_sx0, _sy1),
-	])
-	_fill_grid_clipped(strip, top, z, CURB_PAINT_JOINT)
-	var h := JOINT / 2.0
-	var k0 := floori((_sx0 - _px0) / CURB_BLOCK)
-	var k1 := ceili((_sx1 - _px0) / CURB_BLOCK)
-	for k in range(k0, k1):
-		var bx0 := _px0 + float(k) * CURB_BLOCK
-		var bx1 := bx0 + CURB_BLOCK
-		var blk := _rrect(bx0 + h, _py1, bx1 - h, _sy1, CURB_BLOCK_R, 3)
-		_fill_grid_clipped(blk, top, z, Iso.shade(_curb_color_at((bx0 + bx1) / 2.0), 1.08))
+## رویه‌ی جدول: بلوک‌های سبز/سفید بدون هیچ درز؛ بلوک‌ها کمی روی هم می‌افتند تا شکافی نماند.
+func _draw_curb_top(top: PackedVector2Array, zc: float) -> void:
+	var ov := 0.004
+	for k in range(_n_blk):
+		var bx0 := _sx0 + float(k) * _blk
+		var bx1 := bx0 + _blk
+		var blk := PackedVector2Array([
+			Vector2(bx0 - ov, _cy0 - 0.01), Vector2(bx1 + ov, _cy0 - 0.01),
+			Vector2(bx1 + ov, _sy1 + 0.01), Vector2(bx0 - ov, _sy1 + 0.01),
+		])
+		_fill_grid_clipped(blk, top, zc, Iso.shade(_curb_color_at((bx0 + bx1) / 2.0), 1.08))
 
 
 ## چندضلعی گرید را با clip (هر دو در مختصات گرید) برش می‌دهد و در ارتفاع z می‌کشد.
@@ -215,74 +220,6 @@ func _fill_grid_clipped(poly: PackedVector2Array, clip: PackedVector2Array, z: f
 		var pts: PackedVector2Array = part
 		if pts.size() >= 3:
 			draw_colored_polygon(_proj(pts, z), color)
-
-
-## درز بین بلوک‌های جدول: خط نازک روی دیواره‌ی رو به خیابان، از لبه‌ی رویه تا ته جوب (فقط قسمت صاف جلو).
-func _draw_curb_joints(z: float) -> void:
-	var x_min := _sx0 + CORNER_R + 0.03
-	var x_max := _sx1 - CORNER_R - 0.03
-	var k := ceili((x_min - _px0) / CURB_BLOCK)
-	while true:
-		var x := _px0 + float(k) * CURB_BLOCK
-		if x > x_max:
-			break
-		draw_polyline(PackedVector2Array([
-			_iso.project(x, _sy1 - BEVEL_I, z),
-			_iso.project(x, _sy1, z - BEVEL_H),
-			_iso.project(x, _sy1, -GUTTER_D),
-		]), CURB_JOINT_LINE, 1.2, true)
-		k += 1
-
-
-# ---------------------------------------------------------------- جوب
-
-## جوب تهران: کانال بتنی باز و کم‌عمق جلوی جدول، با کمی آب. کف به‌اندازه‌ی GUTTER_D پایین‌تر از زمین است؛
-## لبه‌ی نزدیک به خیابان (که پشت آن پنهان است) قسمتی از کف را می‌پوشاند، پس کف با دهانه‌ی جوب برش می‌خورد.
-## دیواره‌ی دورتر (همان دیواره‌ی جدول) در بالای دهانه دیده می‌شود و همان بلوک‌های سبز/سفید است.
-func _draw_gutter() -> void:
-	var opening := _rrect(_sx0, _gut_y0, _sx1, _gut_y1, GUTTER_R)
-	var open_px := _proj(opening, 0.0)
-
-	# دهانه با رنگ دیواره پر می‌شود؛ کف و آب روی آن می‌نشینند.
-	draw_colored_polygon(open_px, GUTTER_WALL_COLOR)
-
-	# دیواره‌ی رنگیِ جدول داخل جوب (ادامه‌ی همان بلوک‌ها، کمی تیره‌تر چون در گودی است)
-	var k0 := floori((_sx0 - _px0) / CURB_BLOCK)
-	var k1 := ceili((_sx1 - _px0) / CURB_BLOCK)
-	for k in range(k0, k1):
-		var bx0 := _px0 + float(k) * CURB_BLOCK
-		var bx1 := bx0 + CURB_BLOCK
-		var quad := PackedVector2Array([
-			_iso.project(bx0, _sy1, 0.0), _iso.project(bx1, _sy1, 0.0),
-			_iso.project(bx1, _sy1, -GUTTER_D), _iso.project(bx0, _sy1, -GUTTER_D),
-		])
-		_draw_clipped(quad, open_px, Iso.shade(_curb_color_at((bx0 + bx1) / 2.0), 0.74))
-
-	var floor_plan := _rrect(_sx0 + 0.04, _gut_y0, _sx1 - 0.04, _gut_y1 - 0.03, GUTTER_R * 0.8)
-	_draw_clipped(_proj(floor_plan, -GUTTER_D), open_px, GUTTER_FLOOR_COLOR)
-
-	# آب: باریک‌تر از کف، کمی بالاتر از آن
-	var water_plan := _rrect(_sx0 + 0.1, _gut_y0 + 0.04, _sx1 - 0.1, _gut_y1 - 0.1, 0.06)
-	_draw_clipped(_proj(water_plan, -GUTTER_D + 0.8), open_px, WATER_COLOR)
-	var hi_plan := _rrect(_sx0 + 0.25, _gut_y0 + 0.08, _sx1 - 0.25, _gut_y0 + 0.12, 0.02, 3)
-	_draw_clipped(_proj(hi_plan, -GUTTER_D + 0.8), open_px, WATER_HI_COLOR)
-
-	# لبه‌ی گرد و روشن دهانه‌ی جوب (فقط سمت نزدیک به خیابان و دو سر)
-	var s := ARC_SEGS + 1
-	var lip := PackedVector2Array()
-	for i in range(2 * s, 4 * s):
-		lip.append(open_px[i])
-	lip.append(open_px[2 * s])
-	draw_polyline(lip, Iso.shade(CURB_COLOR, 1.02), 2.0, true)
-
-
-## poly را با clip (هر دو در مختصات صفحه) برش می‌دهد و با رنگ می‌کشد.
-func _draw_clipped(poly: PackedVector2Array, clip: PackedVector2Array, color: Color) -> void:
-	var parts: Array = Geometry2D.intersect_polygons(poly, clip)
-	for part in parts:
-		var pts: PackedVector2Array = part
-		if pts.size() >= 3:
-			draw_colored_polygon(pts, color)
 
 
 # ---------------------------------------------------------------- آجرفرش
@@ -335,13 +272,19 @@ func _rect(x0: float, y0: float, x1: float, y1: float, z: float, color: Color) -
 	]), color)
 
 
+# ---------------------------------------------------------------- دیواره‌ها
+
 ## نوار بین دو خط هم‌تعداد: a در ارتفاع za و b در ارتفاع zb. برای هر ضلعِ رو به دوربین یک چهارضلعی؛
 ## رنگ نرم بین وجه چپِ روشن و وجه راستِ تیره. w (۰..۱) = چقدر رو به بالا است (۰ = دیواره‌ی عمودی، ۱ = رویه).
-## دیواره‌ی دال = حالتی که a و b یکی‌اند و zb = 0.
-## قسمت سمت خیابان (ضلع جلو و دو گوشه‌ی جلو) به‌جای بتن با رنگ بلوک‌های جدول کشیده می‌شود؛
-## ضلع صاف جلو به تکه‌های CURB_BLOCK شکسته می‌شود تا هر بلوک رنگ خودش را بگیرد.
-func _draw_ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: float, w: float) -> void:
-	var c := Vector2((_sx0 + _sx1) / 2.0, (_sy0 + _sy1) / 2.0)
+## curb = false: بتن ساده (دال). curb = true: رنگ بلوک‌های جدول؛ ضلع صاف جلو به تکه‌های بلوک شکسته می‌شود
+## تا هر بلوک رنگ خودش را بگیرد (بدون درز).
+func _ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: float, w: float, curb: bool) -> void:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for p in a:
+		lo = lo.min(p)
+		hi = hi.max(p)
+	var c := (lo + hi) / 2.0
 	var n := a.size()
 	for i in range(n):
 		var j := (i + 1) % n
@@ -357,16 +300,15 @@ func _draw_ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: flo
 		var base := lerpf(0.68, 0.9, t)
 		var shade_f := lerpf(base, 1.12, w)
 		var mid := (a[i] + a[j]) / 2.0
-		if mid.y <= _sy1 - CORNER_R + 0.0001:
-			# جدای از سمت خیابان: بتن ساده
+		if not curb:
 			_ring_piece(a[i], a[j], za, b[i], b[j], zb, Iso.shade(CURB_COLOR, shade_f))
-		elif absf(d.y) < 0.0001 and absf(d.x) > CURB_BLOCK:
+		elif absf(d.y) < 0.0001 and absf(d.x) > _blk:
 			# ضلع صاف جلو: تکه‌تکه با رنگ هر بلوک
 			var x_lo := minf(a[i].x, a[j].x)
 			var x_hi := maxf(a[i].x, a[j].x)
 			var e := x_lo
 			while e < x_hi - 0.00001:
-				var nb := minf(_px0 + (floorf((e - _px0) / CURB_BLOCK + 0.00001) + 1.0) * CURB_BLOCK, x_hi)
+				var nb := minf(_sx0 + (floorf((e - _sx0) / _blk + 0.00001) + 1.0) * _blk, x_hi)
 				var t0 := (e - a[i].x) / d.x
 				var t1 := (nb - a[i].x) / d.x
 				_ring_piece(
@@ -376,11 +318,11 @@ func _draw_ring(a: PackedVector2Array, za: float, b: PackedVector2Array, zb: flo
 				)
 				e = nb
 		else:
-			# کمان‌های گوشه‌ی جلو: رنگ بلوکِ همان نقطه
+			# دو سر و کمان‌های گوشه‌ی جلو: رنگ بلوکِ همان نقطه
 			_ring_piece(a[i], a[j], za, b[i], b[j], zb, Iso.shade(_curb_color_at(mid.x), shade_f))
 
 
-## یک چهارضلعی از نوار _draw_ring: a0-a1 در ارتفاع za، b0-b1 در ارتفاع zb.
+## یک چهارضلعی از نوار _ring: a0-a1 در ارتفاع za، b0-b1 در ارتفاع zb.
 func _ring_piece(a0: Vector2, a1: Vector2, za: float, b0: Vector2, b1: Vector2, zb: float, color: Color) -> void:
 	draw_colored_polygon(PackedVector2Array([
 		_iso.project(a0.x, a0.y, za), _iso.project(a1.x, a1.y, za),
@@ -390,17 +332,29 @@ func _ring_piece(a0: Vector2, a1: Vector2, za: float, b0: Vector2, b1: Vector2, 
 
 ## مستطیل گرد در فضای گرید (نقطه‌ها پشت‌سرهم دور مستطیل). segs = تعداد تکه‌ی هر کمان.
 static func _rrect(x0: float, y0: float, x1: float, y1: float, r: float, segs: int = ARC_SEGS) -> PackedVector2Array:
+	return _rrect_c(x0, y0, x1, y1, r, r, r, r, segs)
+
+
+## مستطیل با شعاع جداگانه برای هر گوشه: بالا-چپ، بالا-راست، پایین-راست، پایین-چپ (در فضای گرید).
+## شعاع صفر = گوشه‌ی تیز (فقط یک نقطه). تعداد نقطه‌ها فقط به این بستگی دارد که کدام گوشه‌ها صفرند.
+static func _rrect_c(x0: float, y0: float, x1: float, y1: float, r_tl: float, r_tr: float, r_br: float, r_bl: float, segs: int = ARC_SEGS) -> PackedVector2Array:
 	var pts := PackedVector2Array()
-	var rr := minf(r, minf(x1 - x0, y1 - y0) / 2.0)
+	var lim := minf(x1 - x0, y1 - y0) / 2.0
 	var corners := [
-		[Vector2(x0 + rr, y0 + rr), PI],
-		[Vector2(x1 - rr, y0 + rr), PI * 1.5],
-		[Vector2(x1 - rr, y1 - rr), 0.0],
-		[Vector2(x0 + rr, y1 - rr), PI * 0.5],
+		[Vector2(x0, y0), Vector2(1.0, 1.0), PI, r_tl],
+		[Vector2(x1, y0), Vector2(-1.0, 1.0), PI * 1.5, r_tr],
+		[Vector2(x1, y1), Vector2(-1.0, -1.0), 0.0, r_br],
+		[Vector2(x0, y1), Vector2(1.0, -1.0), PI * 0.5, r_bl],
 	]
 	for corner in corners:
-		var c: Vector2 = corner[0]
-		var a0: float = corner[1]
+		var p: Vector2 = corner[0]
+		var dir: Vector2 = corner[1]
+		var a0: float = corner[2]
+		var rr: float = minf(float(corner[3]), lim)
+		if rr <= 0.0001:
+			pts.append(p)
+			continue
+		var c := p + dir * rr
 		for s in range(segs + 1):
 			var a := a0 + (PI * 0.5) * float(s) / float(segs)
 			pts.append(c + Vector2(cos(a), sin(a)) * rr)
