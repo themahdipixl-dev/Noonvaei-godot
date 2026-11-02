@@ -10,7 +10,8 @@ extends Node2D
 ##   one <Image> per direction (opacity)        ->  one Node2D layer per direction (`visible`)
 ##   turn spritesheet (translateX / translateY) ->  Sprite2D with `hframes` / `vframes` / `frame`
 ##   Rim: rotate + scaleX on a View             ->  Node2D (rotation + scale.x) holding a spinning Sprite2D
-##   Svg ground shadow                          ->  polygons drawn by `_draw_body`
+##   Svg ground shadow                          ->  sprite mode: polygons drawn by `_draw_body`
+##                                                  3D mode: real sun shadow inside CarModel3D (same style as the Front)
 ##
 ## What is shown as the car body (first match wins):
 ##   1. a 3D model file  <id>.glb  in the project           -> CarModel3D (real model)
@@ -51,7 +52,8 @@ var _per := 1
 var _has_art := false
 ## 3D car (real .glb model or the placeholder); null when the sprites are used
 var _model: CarModel3D
-var _shadow_rings: Array = []  # [parity 0 rings, parity 1 rings]; each ring is a PackedVector2Array
+## 2D shadow rings, only used in sprite mode: [parity 0 rings, parity 1 rings]; each ring is a PackedVector2Array
+var _shadow_rings: Array = []
 
 
 func setup(car: Dictionary, projector: Iso) -> void:
@@ -68,13 +70,14 @@ func setup(car: Dictionary, projector: Iso) -> void:
 	_path = path
 	_s = float(car.get("start_at", 0.0)) * float(path["L"])
 
-	_shadow_rings = [_make_shadow(false), _make_shadow(true)]
-
 	_body = DrawProxy.new()
 	_body.name = "Body"
 	_body.draw_cb = _draw_body
 	add_child(_body)
 	_build_sprites()
+	# The 2D ellipse shadow is only for the old sprite mode. The 3D car casts a real sun shadow (see CarModel3D).
+	if _model == null:
+		_shadow_rings = [_make_shadow(false), _make_shadow(true)]
 	_sync()
 
 
@@ -184,7 +187,7 @@ func _build_model() -> void:
 	_model.setup(String(_car["id"]), _projector.tile_w, len_tiles, _car.get("model", {}))
 
 
-## Ground shadow rings (3 soft ellipses) around the car, in `_body` local px.
+## Ground shadow rings (3 soft ellipses) around the car, in `_body` local px. Sprite mode only.
 func _make_shadow(along_x: bool) -> Array:
 	var cfg: Dictionary = _car["shadow"]
 	var a := float(cfg["length"]) / 2.0
@@ -247,9 +250,10 @@ func _sync() -> void:
 	if _model != null:
 		# heading = direction of the route a little ahead of the car
 		var q := CarPhysics.path_at(_path, _s + MODEL_LOOKAHEAD)
-		_model.update_pose(Vector2(float(q[0]) - float(p[0]), float(q[1]) - float(p[1])), _ang)
-
-	_body.queue_redraw()
+		# `_s` (distance driven, tiles) makes the wheels roll at the real speed and steer in corners
+		_model.update_pose(Vector2(float(q[0]) - float(p[0]), float(q[1]) - float(p[1])), _ang, _s)
+	else:
+		_body.queue_redraw()
 
 
 # ------------------------------------------------------------------ drawing
@@ -259,8 +263,11 @@ func _grid_to_local(u: Vector2, z: float) -> Vector2:
 	return Vector2((u.x - u.y) * _projector.tile_w / 2.0, (u.x + u.y) * _projector.tile_h / 2.0 - z)
 
 
-## Shadow on the ground. `_body` local space, origin = ground point. (The car itself is a child node.)
+## 2D shadow on the ground (sprite mode only). `_body` local space, origin = ground point.
+## With a 3D car nothing is drawn here: the shadow comes from the sun inside CarModel3D.
 func _draw_body(c: CanvasItem) -> void:
+	if _model != null or _shadow_rings.is_empty():
+		return
 	var rings: Array = _shadow_rings[_dir % 2]
 	var alpha := float(_car["shadow"]["opacity"]) * 0.5
 	for ring in rings:
