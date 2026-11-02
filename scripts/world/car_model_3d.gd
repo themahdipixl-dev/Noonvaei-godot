@@ -22,6 +22,8 @@ extends Node2D
 ##       "yaw_offset": 0.0,       # degrees; use 90 / 180 / -90 if the car drives sideways or backwards
 ##       "scale": 1.0,            # size multiplier on screen
 ##       "spin_wheels": false,    # spin nodes named *wheel* in the .glb (only if their pivots are at the wheel centres)
+##       "sun": 0.8,              # main light strength (lower = less washed-out white, higher = brighter)
+##       "ambient": 0.35,         # fill light strength (lower = darker shadows / more contrast)
 ##   }
 ## The car length on screen is taken from car["shadow"]["length"] (tiles).
 ##
@@ -83,10 +85,12 @@ func setup(car_id: String, tile_w: float, length_tiles: float, cfg: Dictionary =
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 
+	# Soft lighting: the sun + ambient must add up to about 1.1, otherwise white parts (roof, hood)
+	# burn out to pure white and the shape of the car is lost.
 	var env := Environment.new()
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(1, 1, 1)
-	env.ambient_light_energy = 0.5
+	env.ambient_light_energy = float(cfg.get("ambient", 0.35))
 
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -99,9 +103,10 @@ func setup(car_id: String, tile_w: float, length_tiles: float, cfg: Dictionary =
 	cam.position = Vector3(0.0, sin(pitch) * 30.0, cos(pitch) * 30.0)
 	_viewport.add_child(cam)
 
+	# the light comes at an angle (not straight from above) so that the top is not much brighter than the sides
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = 1.1
-	sun.basis = Basis.looking_at(Vector3(0.45, -0.8, -0.35).normalized(), Vector3.UP)
+	sun.light_energy = float(cfg.get("sun", 0.8))
+	sun.basis = Basis.looking_at(Vector3(0.6, -0.6, -0.5).normalized(), Vector3.UP)
 	_viewport.add_child(sun)
 
 	# ---- the car
