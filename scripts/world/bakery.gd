@@ -84,6 +84,11 @@ func _on_front_status(message: String, is_error: bool) -> void:
 
 
 func _on_front_baked(tex: Texture2D) -> void:
+	# The 3D render has a transparent background, so its edge pixels (MSAA / glass) are premultiplied by alpha.
+	# Drawing them as normal (straight) alpha made a dark outline around the whole shop -> blend as premultiplied.
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	_front.material = mat
 	_front.texture = tex
 	_front.scale = Vector2(_canvas_size, _canvas_size) / tex.get_size()
 	_front.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
