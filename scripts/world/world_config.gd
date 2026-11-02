@@ -124,7 +124,7 @@ const DEFAULT_CAR := {
 		{"at": Vector2(15, 10), "stop_for": 5.0},
 	],
 
-	# shadow on the ground (length and width in tiles)
+	# length (tiles) = size of the 3D car on the ground; width / opacity / dx / dy are only used by the old 2D sprite shadow
 	"shadow": {"length": 1.9, "width": 0.85, "opacity": 0.3, "dx": 3.0, "dy": 2.0},
 
 	# Rims: x, y = center (fraction of image width/height), d = long diameter of the ellipse (fraction of image width)
@@ -159,6 +159,11 @@ static func cars() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var car: Dictionary = DEFAULT_CAR.duplicate(true)
 	car["id"] = "peugeot_pars"
+	# 3D model options (see scripts/world/car_model_3d.gd). The 4 wheels of peugeot_pars.glb are separate nodes
+	# named Part 0..3: they roll with the distance driven and the front pair steers in corners.
+	car["model"] = {
+		"wheel_names": ["Part 0", "Part 1", "Part 2", "Part 3"],
+	}
 	out.append(car)
 	return out
 
