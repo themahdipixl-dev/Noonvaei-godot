@@ -1,6 +1,6 @@
 class_name Sidewalk
 extends Node2D
-## پیاده‌رو جلوی مغازه + جدولِ سبک تهران (بدون جوب).
+## پیاده‌رو جلوی مغازه + جدولِ سبک تهران + خیابانِ جلوی آن.
 ##
 ## اندازه‌ها بر حسب «واحد» هستند. یک واحد = عرض یک کاشی زرد (UNIT خانه‌ی گرید).
 ## عرض پیاده‌رو (قسمت آجرفرش) = WIDTH_UNITS واحد = 5 تا کاشی زرد کنار هم:
@@ -8,12 +8,14 @@ extends Node2D
 ## خطوط برجسته‌ی کاشی زرد موازی طول نوار هستند.
 ##
 ## از مغازه به سمت خیابان (gy بزرگ‌تر):
-##   [آجرفرش روی دال] -> [جدول رنگ‌شده، بلندتر از آجرفرش] -> خیابان
+##   [آجرفرش روی دال] -> [جدول رنگ‌شده، بلندتر از آجرفرش] -> [خیابان: دو لاین]
 ## - جدول یک بلوک جداست که CURB_UP پیکسل از سطح آجرفرش بلندتر است (هم‌سطح نیست).
 ## - جدول بلوک‌بلوک سبز تیره و سفید است و رنگ‌ها یکی‌درمیان عوض می‌شوند.
 ## - بین بلوک‌های جدول هیچ درز یا خط تیره‌ای نیست.
-## - جدول و دال دقیقاً هم‌طول‌اند و دو سرشان یک خط عمودی صاف دارند (بدون بیرون‌زدگی).
+## - جدول و دال دقیقاً هم‌طول‌اند و دو سرشان یک خط عمودی صاف دارد (بدون بیرون‌زدگی).
 ##   فقط گوشه‌های عقبیِ دال و گوشه‌های جلویی جدول گردند.
+## - خیابان هم‌طول پیاده‌رو است و عرضش ROAD_LANES لاین (هر لاین ROAD_LANE_W خانه) = رفت‌وآمد دو ماشین،
+##   یک لاین برای هر جهت، با خط‌چین وسط.
 ##
 ## جای پیاده‌رو: جلوی ورودی مغازه (لبه‌ی gy بزرگ‌تر)، به‌اندازه‌ی عرض مغازه + SIDE_MARGIN از هر طرف.
 ## ترتیب کشیدن: بعد از Bakery (روی آن)، تا لبه‌ی بیرونی کف مغازه دیده نشود.
@@ -33,13 +35,13 @@ const SIDE_MARGIN := 1.0
 
 ## حاشیه‌ی سنگی کنار و پشت آجرفرش (خانه‌ی گرید).
 const RIM := 0.045
-## عرض جدول سمت خیابان (خانه‌ی گرید).
-const CURB_W := 0.16
+## عرض (ضخامت) جدول سمت خیابان (خانه‌ی گرید).
+const CURB_W := 0.107
 ## اندازه‌ی تقریبی هر بلوک جدول (خانه‌ی گرید). اندازه‌ی واقعی طوری تنظیم می‌شود که
 ## تعداد بلوک‌ها فرد و هر دو سر جدول سبز باشد و بلوک نیمه‌کاره نداشته باشیم.
 const CURB_BLOCK := 0.3
 ## شعاع گوشه‌های جلویی جدول (خانه‌ی گرید).
-const CURB_R := 0.07
+const CURB_R := 0.045
 ## شعاع گوشه‌های عقبیِ دال (خانه‌ی گرید).
 const CORNER_R := 0.12
 ## ارتفاع دال از زمین (px).
@@ -59,6 +61,19 @@ const YELLOW_R := 0.022
 ## تعداد تکه‌ی هر کمان گوشه (بیشتر = گردتر).
 const ARC_SEGS := 8
 
+## خیابان: تعداد لاین‌ها (۲ = یکی برای هر جهت) و عرض هر لاین (خانه‌ی گرید؛ کمی بیشتر از عرض یک ماشین).
+const ROAD_LANES := 2
+const ROAD_LANE_W := 1.2
+## گوشه‌های گردِ دور (سمت مقابل جدول) خیابان.
+const ROAD_R := 0.1
+## خط‌چین وسط: طول، فاصله، ضخامت (خانه‌ی گرید).
+const DASH_LEN := 0.4
+const DASH_GAP := 0.3
+const DASH_W := 0.05
+## خط ممتد لبه‌ی دور خیابان: فاصله از لبه و ضخامت.
+const EDGE_LINE_INSET := 0.1
+const EDGE_LINE_W := 0.035
+
 const BRICK_COLOR := Color("#a9acaf")
 const JOINT_COLOR := Color("#7d8185")
 const YELLOW_COLOR := Color("#e6bf5f")
@@ -68,6 +83,8 @@ const CURB_COLOR := Color("#cfc9bd")
 ## رنگ جدول: سبز تیره + سفید.
 const CURB_GREEN := Color("#1f5b3b")
 const CURB_WHITE := Color("#d8dbd7")
+const ROAD_COLOR := Color("#4b4e54")
+const ROAD_LINE_COLOR := Color("#e9e6dc")
 const SHADOW_COLOR := Color(0.25, 0.18, 0.08, 0.12)
 
 var _iso: Iso
@@ -83,6 +100,8 @@ var _sy0 := 0.0
 ## جدول (گرید): y از _cy0 تا _sy1 ، x همان _sx0.._sx1
 var _cy0 := 0.0
 var _sy1 := 0.0
+## خیابان (گرید): x همان _sx0.._sx1، y از _sy1 تا _ry1
+var _ry1 := 0.0
 var _n_len := 0
 ## تعداد و اندازه‌ی بلوک‌های جدول
 var _n_blk := 1
@@ -105,6 +124,7 @@ func setup(projector: Iso, lot_gx: float, lot_gy: float, lot_size: float) -> voi
 	_py1 = _py0 + float(WIDTH_UNITS) * UNIT
 	_cy0 = _py1
 	_sy1 = _cy0 + CURB_W
+	_ry1 = _sy1 + float(ROAD_LANES) * ROAD_LANE_W
 	# بلوک‌های جدول: تعداد فرد => هر دو سر سبز و هم‌شکل
 	var span := _sx1 - _sx0
 	_n_blk = maxi(1, roundi(span / CURB_BLOCK))
@@ -119,6 +139,11 @@ func width_tiles() -> float:
 	return float(WIDTH_UNITS) * UNIT
 
 
+## مرکز هر لاین (gy، گرید): lane = 0 نزدیک جدول، lane = 1 دورتر. برای تنظیم مسیر ماشین‌ها.
+func lane_center_y(lane: int) -> float:
+	return _sy1 + (float(lane) + 0.5) * ROAD_LANE_W
+
+
 func _draw() -> void:
 	if _iso == null:
 		return
@@ -128,6 +153,9 @@ func _draw() -> void:
 	var top := _slab_outline(BEVEL_I)
 	var pr := maxf(CORNER_R - RIM, 0.02)
 	var paved := _rrect_c(_px0, _py0, _px1, _py1, pr, pr, 0.0, 0.0)
+
+	# خیابان (روی زمین، زیر جدول)
+	_draw_road()
 
 	# سایه‌ی ملایم روی زمین (کمی به سمت جلو/راست)
 	draw_colored_polygon(_proj(_rrect(_sx0 + 0.03, _sy0 + 0.06, _sx1 + 0.05, _sy1 + 0.09, CORNER_R), 0.0), SHADOW_COLOR)
@@ -190,6 +218,31 @@ func _slab_outline(inset: float) -> PackedVector2Array:
 func _curb_outline(inset: float) -> PackedVector2Array:
 	var r := maxf(CURB_R - inset, 0.02)
 	return _rrect_c(_sx0 + inset, _cy0, _sx1 - inset, _sy1 - inset, 0.0, 0.0, r, r)
+
+
+# ---------------------------------------------------------------- خیابان
+
+## خیابان: آسفالت هم‌طول پیاده‌رو، ROAD_LANES لاین، خط‌چین سفید وسط و خط ممتد باریک کنار لبه‌ی دور.
+## از زیر جدول شروع می‌شود (جدول رویش کشیده می‌شود)؛ فقط دو گوشه‌ی دور گرد است.
+func _draw_road() -> void:
+	var y0 := _sy1 - 0.03
+	var asphalt := _rrect_c(_sx0, y0, _sx1, _ry1, 0.0, 0.0, ROAD_R, ROAD_R)
+	draw_colored_polygon(_proj(asphalt, 0.0), ROAD_COLOR)
+
+	# خط‌چین وسط (بین لاین‌ها)، وسط‌چین شده در طول خیابان
+	var mid_y := _sy1 + ROAD_LANE_W * float(ROAD_LANES) / 2.0
+	var pitch := DASH_LEN + DASH_GAP
+	var length := _sx1 - _sx0
+	var n := maxi(1, floori((length - 0.4 + DASH_GAP) / pitch))
+	var used := float(n) * pitch - DASH_GAP
+	var x := _sx0 + (length - used) / 2.0
+	for i in range(n):
+		_rect(x, mid_y - DASH_W / 2.0, x + DASH_LEN, mid_y + DASH_W / 2.0, 0.0, ROAD_LINE_COLOR)
+		x += pitch
+
+	# خط ممتد کنار لبه‌ی دور خیابان
+	var ey := _ry1 - EDGE_LINE_INSET
+	_rect(_sx0 + ROAD_R, ey - EDGE_LINE_W, _sx1 - ROAD_R, ey, 0.0, ROAD_LINE_COLOR)
 
 
 # ---------------------------------------------------------------- جدول
